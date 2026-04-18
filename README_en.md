@@ -3,7 +3,7 @@
 <img width="200" src="/Photos/Lengbanlist-icon.png">
 </p>
 
-*[Simplified Chinese](README.md) | English*
+*[简体中文](README.md) | English*
 
 **[Multi-platform Links](readme-website.md)** |
 *[Read in Advance](Notice.md)* |
