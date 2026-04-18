@@ -1,14 +1,14 @@
 <div align="center">
 <p>
-    <img width="200" src="/Photos/Lengbanlist-icon.png">
+<img width="200" src="/Photos/Lengbanlist-icon.png">
 </p>
 
-*[简体中文](README.md) | English*  
+*Simplified Chinese | [English](README_en.md)*
 
-**[Multi-platform linking](readme-website.md)** |
-*[Read beforehand](Notice.md)* |
-**[Development Notes](PullRequest_en.md)** |
-*[License Tips](Mustn't_en.md)* |
+**[Multi-platform Links](readme-website.md)** |
+*[Read in Advance](Notice.md)* |
+**[Developer Notes](PullRequest_zh.md)** |
+*[License Notice](Mustn't_zh.md)* |
 **[Discord](https://discord.gg/aeWjf7vD)**
 </div>
 
@@ -19,43 +19,31 @@
 [![Minecraft Version](https://img.shields.io/badge/Minecraft-1.21.x-brightgreen)](https://www.minecraft.net)
 [![License](https://img.shields.io/badge/License-MPL2.0-blue)](LICENSE)
 
-Lengbanlist is a plugin designed for high-version Minecraft servers. It broadcasts information from the local banlist in the chat bar, enabling administrators to promptly notify players about banned information and enhancing the transparency and efficiency of server management.
+Lengbanlist is a plugin designed specifically for higher-version Minecraft servers. It broadcasts ban information in real-time in the chat bar using the local banlist, helping administrators notify players promptly and improving server management transparency and efficiency.
 
-## Key Features
-- **Local banlist broadcasting**: Reads the server's local banlist in real-time and broadcasts it in the chat bar, ensuring all players are informed about bans promptly.
-- **Customizable config**: Offers a flexible configuration file, allowing administrators to adjust broadcast formats, frequencies, and other parameters to meet personalized management needs.
-- **Localized data storage**: Uses localized data storage to ensure data security and reliability.
-- **Model functionality**: Supports multiple broadcast modes, enabling administrators to switch freely based on different scenarios.
-- **Personalization**: Provides various model-based personalized styles, without emoticon support.
+## Features
+- **Broadcast based on local banlist**: Reads the server’s local banlist in real-time and broadcasts ban information in the chat bar, ensuring all players are promptly informed.
+- **Customizable config**: Provides flexible configuration files. Administrators can adjust broadcast format, frequency, and other parameters according to their needs to meet personalized management requirements.
+- **Localized data storage**: Multiple optional data storage methods to ensure data security and reliability.
+- **Special Model feature**: Supports multiple models that administrators can freely switch between to meet the needs of different scenarios.
 
-## Usage
-1. Place the plugin file into the server's plugin directory.
-2. Restart the server, and the plugin will automatically generate a default configuration file.
-3. Modify the parameters in the configuration file as needed, such as broadcast intervals and message formats.
+## Usage Instructions
+1. Place the plugin file into the server’s plugins directory.
+2. Restart the server; the plugin will automatically generate a default configuration file.
+3. Modify parameters in the configuration file as needed, such as broadcast interval, message format, etc.
 4. Reload the plugin or restart the server to apply the configuration.
 
 ## Command Help
 For detailed command usage, please refer to: [Lengbanlist Command Help](LengbanlistCommandHelp.md)
 
 ## Plugin Showcase
-To view the actual effects and showcase images of the plugin, click here: [Lengbanlist Plugin Showcase](Lengbanlist_Images.md)
+To see the actual effects and display images of the plugin, please click: [Lengbanlist Plugin Showcase Images](Lengbanlist_Images.md)
 
-## Notes
-- I am a development newbie. If there are any shortcomings in the plugin, please be tolerant and do not criticize it casually. If you think the plugin is not bad, feel free to give it a star. At the same time, I hope everyone can actively participate and help update the plugin together to make it better.
-- This project is licensed under Mozilla Public License Version 2.0. For more details, please refer to the LICENSE file.
+## Welcome to Support My Project! ❤️
 
-Developer: darkpath2011, xiaoshaziYA  
-Special thanks to: darkpath2011  
+If you like my project or find it helpful, you are welcome to support me in the following ways! Your support will help me continue developing and maintaining these projects, and also motivate me to create more interesting content.
 
-# Support My Project! ❤️
-If you like my project or find it helpful, please consider supporting me! Your support will help me continue developing and maintaining my projects and motivate me to create more interesting content. Thank you!
+## Sponsorship
+[![Afdian Sponsor](https://img.shields.io/badge/爱发电-支持我-orange)](https://afdian.com/a/lengmc)
 
-## Sponsorship Options
-- [Aifadian](https://afdian.com/a/lengbanlist): Support me via Aifadian. Your contributions help me improve my projects and create more content.
-
-## Sponsorship Badge
-You can also support me quickly through the following badge:
-
-[![爱发电 Sponsor](https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-%E6%94%AF%E6%8C%81%E6%88%91-orange)](https://afdian.com/a/lengbanlist)
-
-### Thank you for your support! ❤️
+Thank you for your support! ❤️
