@@ -16,25 +16,11 @@ import java.util.Arrays;
 import java.util.List;
 
 public class GitHubUpdateChecker {
-    // 默认的 GitHub API 地址
-    private static final String GITHUB_API_URL = "https://api.github.com/repos/LengMC/Lengbanlist/releases/latest";
+    private static final String GITHUB_API_URL = "https://api.github.com/repos/Ukiyograin/Lengbanlist/releases/latest";
 
-    // 静态的备用 API 地址列表（选择响应时间较短的节点）
-    private static final List<String> STATIC_API_URLS = Arrays.asList(
-            "https://ghproxy.cxkpro.top/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://ghproxy.monkeyray.net/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://ghfile.geekertao.top/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://gh.zwy.me/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://ghp.keleyaa.com/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://gitproxy.click/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://gh.monlor.com/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://ghproxy.cc/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://gh-proxy.ygxz.in/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest",
-            "https://github.ednovas.xyz/https://api.github.com/repos/LengMC/Lengbanlist/releases/latest"
-    );
+    private static final List<String> STATIC_API_URLS = Arrays.asList(GITHUB_API_URL);
 
-    // 超时时间（毫秒）
-    private static final int TIMEOUT = 10000; // 10 秒超时
+    private static final int TIMEOUT = 3000;
 
     /**
      * 获取最新版本号
@@ -62,35 +48,24 @@ public class GitHubUpdateChecker {
      * @throws Exception 如果请求失败
      */
     private static String fetchVersionFromUrl(String url) throws Exception {
-        int retryCount = 3; // 重试次数
-        Exception lastException = null;
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
+        connection.setConnectTimeout(TIMEOUT);
+        connection.setReadTimeout(TIMEOUT);
 
-        for (int i = 0; i < retryCount; i++) {
-            try {
-                HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-                connection.setRequestMethod("GET");
-                connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
-                connection.setConnectTimeout(TIMEOUT);
-                connection.setReadTimeout(TIMEOUT);
-
-                try (InputStreamReader reader = new InputStreamReader(connection.getInputStream())) {
-                    StringBuilder response = new StringBuilder();
-                    int data = reader.read();
-                    while (data != -1) {
-                        response.append((char) data);
-                        data = reader.read();
-                    }
-                    JsonObject jsonResponse = JsonParser.parseString(response.toString()).getAsJsonObject();
-                    return jsonResponse.get("tag_name").getAsString();
-                }
-            } catch (Exception e) {
-                lastException = e;
-                Lengbanlist.getInstance().getLogger().warning("喵总请求失败，重试中... (" + (i + 1) + "/" + retryCount + ")");
-                Thread.sleep(2000); // 等待 2 秒后重试
+        try (InputStreamReader reader = new InputStreamReader(connection.getInputStream())) {
+            StringBuilder response = new StringBuilder();
+            int data = reader.read();
+            while (data != -1) {
+                response.append((char) data);
+                data = reader.read();
             }
+            JsonObject jsonResponse = JsonParser.parseString(response.toString()).getAsJsonObject();
+            return jsonResponse.get("tag_name").getAsString();
+        } finally {
+            connection.disconnect();
         }
-
-        throw lastException; // 如果所有重试都失败，抛出最后一次异常
     }
 
     /**
@@ -156,13 +131,14 @@ private static int[] parseVersion(String ver) {
     public static void checkUpdate() {
         try {
             String localVersion = Lengbanlist.getInstance().getDescription().getVersion();
-            if (isUpdateAvailable(localVersion)) {
+            String latestVersion = getLatestReleaseVersion();
+            if (compareVersions(localVersion, latestVersion) < 0) {
                 // 创建主消息组件
-                TextComponent mainMessage = new TextComponent("§a喵喵发现有新版本可用，当前版本：§e" + localVersion + "§a，最新版本：§e" + getLatestReleaseVersion() + "§a 请前往: §bhttps://github.com/LengMC/Lengbanlist/releases");
+                TextComponent mainMessage = new TextComponent("§a喵喵发现有新版本可用，当前版本：§e" + localVersion + "§a，最新版本：§e" + latestVersion + "§a 请前往: §bhttps://github.com/Ukiyograin/Lengbanlist/releases");
 
                 // 创建点击组件
                 TextComponent clickableComponent = new TextComponent("§f【§b点击前往喵~§f】");
-                clickableComponent.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://github.com/LengMC/Lengbanlist/releases"));
+                clickableComponent.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://github.com/Ukiyograin/Lengbanlist/releases"));
                 clickableComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击打开更新页面喵~").create()));
 
                 // 将 TextComponent 转换为字符串并输出日志
@@ -183,7 +159,7 @@ private static int[] parseVersion(String ver) {
  * @return 下载URL
  */
 public static String getDownloadUrl(String version) {
-    return "https://github.com/LengMC/Lengbanlist/releases/download/" + 
+    return "https://github.com/Ukiyograin/Lengbanlist/releases/download/" + 
            version + "/Lengbanlist-" + version + ".jar";  // GitHub release使用的是连字符格式
 }
 
