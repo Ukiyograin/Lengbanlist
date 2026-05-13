@@ -25,7 +25,7 @@ Lengbanlist is a plugin designed specifically for higher version Minecraft serve
 - **Broadcast based on local banlist**: Reads the server’s local banlist in real-time and broadcasts ban information in the chat bar, ensuring all players are promptly informed.
 - **Customizable config**: Provides flexible configuration files. Administrators can adjust broadcast format, frequency, and other parameters according to their needs to meet personalized management requirements.
 - **Localized data storage**: Multiple optional data storage methods to ensure data security and reliability.
-- **Special Model feature**: Supports multiple models that administrators can freely switch between to meet the needs of different scenarios.
+- **Special Model feature**: Supports multiple model styles, allowing administrators to switch freely, making your help information and related prompts more interesting.
 
 ## Usage Instructions
 1. Place the plugin file into the server’s plugins directory.
