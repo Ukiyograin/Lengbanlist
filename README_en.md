@@ -19,7 +19,7 @@
 [![Minecraft Version](https://img.shields.io/badge/Minecraft-1.21.x-brightgreen)](https://www.minecraft.net)
 [![License](https://img.shields.io/badge/License-MPL2.0-blue)](LICENSE)
 
-Lengbanlist is a plugin designed specifically for higher-version Minecraft servers. It broadcasts ban information in real-time in the chat bar using the local banlist, helping administrators notify players promptly and improving server management transparency and efficiency.
+Lengbanlist is a plugin designed specifically for higher version Minecraft servers. It broadcasts ban information in the chat bar in real time, helping administrators promptly notify players and improve the transparency and efficiency of server management.
 
 ## Features
 - **Broadcast based on local banlist**: Reads the server’s local banlist in real-time and broadcasts ban information in the chat bar, ensuring all players are promptly informed.
