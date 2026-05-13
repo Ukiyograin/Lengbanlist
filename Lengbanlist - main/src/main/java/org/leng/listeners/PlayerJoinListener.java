@@ -5,12 +5,12 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.leng.Lengbanlist;
-import org.leng.manager.BanManager;
 import org.leng.manager.ReportManager;
 import org.leng.object.ReportEntry;
 import org.leng.utils.SaveIP;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class PlayerJoinListener implements Listener {
     private final Lengbanlist plugin;
@@ -31,7 +31,7 @@ public class PlayerJoinListener implements Listener {
         ReportManager reportManager = plugin.getReportManager();
         List<ReportEntry> reports = reportManager.getPendingReports().stream()
                 .filter(report -> report.getReporter().equals(player.getName()))
-                .toList();
+                .collect(Collectors.toList());
 
         if (!reports.isEmpty()) {
             player.sendMessage("——————————");
@@ -42,8 +42,8 @@ public class PlayerJoinListener implements Listener {
             // 标记举报为已读
             for (ReportEntry report : reports) {
                 report.setStatus("已读");
+                reportManager.updateReport(report);
             }
-            reportManager.saveReports();
         }
     }
 }

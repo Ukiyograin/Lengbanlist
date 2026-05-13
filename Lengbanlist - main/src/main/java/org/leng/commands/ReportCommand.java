@@ -9,14 +9,10 @@ import org.leng.Lengbanlist;
 import org.leng.object.ReportEntry;
 import org.leng.utils.Utils;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.UUID;
 
 public class ReportCommand implements CommandExecutor {
     private final Lengbanlist plugin;
-    private final Map<String, ReportEntry> reports = new HashMap<>();
-    private int nextReportId = 1;
 
     public ReportCommand(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -64,51 +60,38 @@ public class ReportCommand implements CommandExecutor {
     }
 
     private void handleAccept(Player player, String reportId) {
-        ReportEntry report = reports.get(reportId);
-
+        ReportEntry report = plugin.getReportManager().getReport(reportId);
         if (report == null) {
             Utils.sendMessage(player, plugin.prefix() + "§c未找到举报编号: " + reportId);
             return;
         }
 
-        // 设置举报状态为受理
         report.setStatus("受理中");
+        plugin.getReportManager().updateReport(report);
 
-        // 给举报人发送消息
         Player reporter = Bukkit.getPlayer(report.getReporter());
         if (reporter != null) {
             Utils.sendMessage(reporter, plugin.prefix() + "§a你的举报已被受理，受理人：" + player.getName() + "，举报编号：" + report.getId() + "，将尽快处理。");
         }
-
-        // 给受理人发送消息
         Utils.sendMessage(player, plugin.prefix() + "§a你已受理举报：" + report.getId());
     }
 
     private void handleClose(Player player, String reportId) {
-        ReportEntry report = reports.get(reportId);
-
+        ReportEntry report = plugin.getReportManager().getReport(reportId);
         if (report == null) {
             Utils.sendMessage(player, plugin.prefix() + "§c未找到举报编号: " + reportId);
             return;
         }
 
-        // 移除举报记录
-        reports.remove(reportId);
+        report.setStatus("已关闭");
+        plugin.getReportManager().updateReport(report);
         Utils.sendMessage(player, plugin.prefix() + "§a你已关闭举报: " + report.getId());
     }
 
-private void handleReportSubmit(Player reporter, String target, String reason) {
-    String reportId = String.valueOf(nextReportId++);
-    ReportEntry report = new ReportEntry(
-            target,
-            reporter.getName(),
-            reason,
-            reportId,
-            System.currentTimeMillis(), 
-            "未处理"
-    );
-    reports.put(reportId, report);
-
-    Utils.sendMessage(reporter, plugin.prefix() + "§a举报已提交: " + target + " - " + reason + "，举报编号：" + reportId);
-}
+    private void handleReportSubmit(Player reporter, String target, String reason) {
+        String reportId = UUID.randomUUID().toString();
+        ReportEntry report = new ReportEntry(target, reporter.getName(), reason, reportId, System.currentTimeMillis(), "未处理");
+        plugin.getReportManager().addReport(report);
+        Utils.sendMessage(reporter, plugin.prefix() + "§a举报已提交: " + target + " - " + reason + "，举报编号：" + reportId);
+    }
 }

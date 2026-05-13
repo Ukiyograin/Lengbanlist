@@ -7,9 +7,12 @@ valid-models: "Default English HuTao Furina Zhongli Keqing Xiao Ayaka Zero Herta
 update-check: false # 是否启用更新检查（默认：false）
 auto-update: false # 是否启用自动更新（默认：false）
 
-#数据库  （尚未实现）
-database: 
-  type: "yml"  # 或 "mysql"
+# 数据库类型: sqlite 或 mysql
+# 旧版本的 yml 会自动按 sqlite 处理，并从旧 YAML 文件迁移数据
+database:
+  type: "sqlite"
+  sqlite:
+    file: "lengbanlist.db"
   mysql:
     host: "localhost"
     port: 3306

@@ -1,13 +1,11 @@
 name: Lengbanlist
 main: org.leng.Lengbanlist
-version: 1.8.0
+version: 1.8.1
 api-version: 1.21
 folia-supported: true
 authors: 
-  - LengMC
-  - xiaoshaziYA
-  - ShaoqingG
-description: qwq
+  - Ukiyograin
+description: This plugin provides a lightweight ban and query system for high-version Minecraft servers.
 commands:
   lban:
     description: 主命令

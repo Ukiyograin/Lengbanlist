@@ -7,9 +7,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.OfflinePlayer;
 import org.leng.Lengbanlist;
-import org.leng.manager.BanManager;
-import org.leng.manager.MuteManager;
-import org.leng.manager.WarnManager;
 import org.leng.utils.SaveIP;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
@@ -20,7 +17,6 @@ import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class CheckCommand extends Command implements CommandExecutor {
@@ -69,8 +65,8 @@ public class CheckCommand extends Command implements CommandExecutor {
         String uuid = player.getUniqueId().toString();
         long lastLogin = player.getLastPlayed();
         String lastLoginTime = lastLogin == 0 ? "从未登录" : TimeUtils.timestampToReadable(lastLogin);
-        boolean isMuted = plugin.getMuteManager().isPlayerMuted(uuid);
-        boolean isBanned = plugin.getBanManager().isPlayerBanned(uuid);
+        boolean isMuted = plugin.getMuteManager().isPlayerMuted(playerName);
+        boolean isBanned = plugin.getBanManager().isPlayerBanned(playerName);
         boolean isOp = player.isOp();
         List<WarnEntry> warnings = plugin.getWarnManager().getActiveWarnings(playerName);
 
@@ -113,15 +109,7 @@ public class CheckCommand extends Command implements CommandExecutor {
     }
 
     private List<String> getPlayersAssociatedWithIp(String ip) {
-        List<String> players = new ArrayList<>();
-        List<String> ipList = plugin.getIpFC().getStringList("ip");
-        for (String entry : ipList) {
-            String[] parts = entry.split(":");
-            if (parts.length == 2 && parts[1].equals(ip)) {
-                players.add(parts[0]);
-            }
-        }
-        return players;
+        return SaveIP.getPlayersByIp(ip);
     }
 
     private void showSponsorInfo(CommandSender sender) {

@@ -76,17 +76,22 @@ public class ReportEntry implements ConfigurationSerializable {
     }
 
     public static ReportEntry deserialize(Map<String, Object> map) {
-        // 从Map中读取时间戳和状态，如果不存在则使用默认值
-        long timestamp = map.containsKey("timestamp") ? (long) map.get("timestamp") : System.currentTimeMillis();
-        String status = map.containsKey("status") ? (String) map.get("status") : "未处理";
+        Object timestampValue = map.get("timestamp");
+        long timestamp = timestampValue instanceof Number ? ((Number) timestampValue).longValue() : System.currentTimeMillis();
+        Object statusValue = map.get("status");
+        String status = statusValue == null ? "未处理" : String.valueOf(statusValue);
 
         return new ReportEntry(
-                (String) map.get("target"),
-                (String) map.get("reporter"),
-                (String) map.get("reason"),
-                (String) map.get("id"),
+                stringValue(map.get("target")),
+                stringValue(map.get("reporter")),
+                stringValue(map.get("reason")),
+                stringValue(map.get("id")),
                 timestamp,
                 status
         );
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 }
