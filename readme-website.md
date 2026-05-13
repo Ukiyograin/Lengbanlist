@@ -2,7 +2,7 @@
 > 当前已在多平台上线！！
 
 ## github:
-https://github.com/UkiyograinC/Lengbanlist
+https://github.com/Ukiyograin/Lengbanlist
 
 ## spigotmc:
 https://www.spigotmc.org/resources/lengbanlist-%E5%86%B7%E7%A6%81%E5%88%97%E8%A1%A8.123623/
