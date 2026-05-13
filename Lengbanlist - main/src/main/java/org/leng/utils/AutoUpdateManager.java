@@ -92,7 +92,7 @@ public class AutoUpdateManager {
         }
 
         // 下载URL
-        String downloadUrl = "https://github.com/LengMC/Lengbanlist/releases/download/" + 
+        String downloadUrl = "https://github.com/Ukiyograin/Lengbanlist/releases/download/" +
                            version + "/Lengbanlist-" + version + ".jar";
         
         // 下载到临时文件
@@ -101,10 +101,15 @@ public class AutoUpdateManager {
         
         // 下载新版本
         logger.info("正在从 " + downloadUrl + " 下载新版本...");
-        try (InputStream in = new URL(downloadUrl).openStream();
+        HttpURLConnection connection = (HttpURLConnection) new URL(downloadUrl).openConnection();
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(15000);
+        try (InputStream in = connection.getInputStream();
              ReadableByteChannel rbc = Channels.newChannel(in);
              FileOutputStream fos = new FileOutputStream(tempFile)) {
             fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+        } finally {
+            connection.disconnect();
         }
 
         logger.info("新版本已下载到临时文件: " + tempFile.getName() + 
