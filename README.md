@@ -19,7 +19,7 @@
 [![Minecraft Version](https://img.shields.io/badge/Minecraft-1.21.x-brightgreen)](https://www.minecraft.net)
 [![License](https://img.shields.io/badge/License-MPL2.0-blue)](LICENSE)
 
-Lengbanlist 是一款专为高版本 Minecraft 服务器设计的插件，它通过本地封禁名单（banlist）在聊天栏实时广播封禁信息，帮助管理员及时通知玩家，提升服务器管理的透明度和效率。
+Lengbanlist 是一款专为高版本 Minecraft 服务器设计的插件，它在聊天栏实时广播封禁信息，帮助管理员及时通知玩家，提升服务器管理的透明度和效率。
 
 ## 特色功能
 - **基于本地 banlist 广播**：实时读取服务器本地的封禁名单，并在聊天栏中广播封禁信息，确保所有玩家都能及时了解封禁情况。
