@@ -72,7 +72,7 @@
 
     <build>
         <defaultGoal>clean package</defaultGoal>
-        <finalName>Lengbanlist - 1.8.0</finalName>
+        <finalName>Lengbanlist - 1.8.1</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

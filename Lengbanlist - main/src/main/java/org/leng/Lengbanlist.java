@@ -67,9 +67,10 @@ public void onLoad() {
     }
     
     eulaFC = YamlConfiguration.loadConfiguration(eulaFile);
-    String agreement = eulaFC.getString("I have read and agree", "no");
-    eulaAgreed = "yes".equalsIgnoreCase(agreement != null ? agreement.trim() : "no");  // 这里添加分号
-    
+    Object agreementValue = eulaFC.get("I have read and agree to the above terms");
+    String agreement = agreementValue == null ? "no" : String.valueOf(agreementValue).trim();
+    eulaAgreed = "yes".equalsIgnoreCase(agreement) || "true".equalsIgnoreCase(agreement);
+
     if (!eulaAgreed) {
         return;
     }
