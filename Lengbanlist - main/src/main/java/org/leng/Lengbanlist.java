@@ -116,14 +116,11 @@ public void onLoad() {
 
     if (!broadcastFC.contains("default-message")) {
         broadcastFC.set("default-message", "§b当前封禁人数：%s 人，封禁IP数：%i 人，总计：%t 人");
-        File finalFile = broadcastFile;
-        runAsync(() -> {
-            try { 
-                broadcastFC.save(finalFile); 
-            } catch (IOException e) { 
-                e.printStackTrace(); 
-            }
-        });
+        try {
+            broadcastFC.save(broadcastFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 } 
 
