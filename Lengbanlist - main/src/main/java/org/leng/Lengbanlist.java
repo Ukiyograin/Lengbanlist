@@ -9,7 +9,6 @@ import org.bukkit.scheduler.BukkitTask;
 import org.leng.commands.*;
 import org.leng.listeners.*;
 import org.leng.manager.*;
-import org.leng.object.ReportEntry;
 import org.leng.utils.GitHubUpdateChecker;
 import org.leng.utils.AutoUpdateManager;
 
@@ -40,10 +39,12 @@ public class Lengbanlist extends JavaPlugin {
     private ModelChoiceListener modelChoiceListener;
     private String hitokoto;
     private ModelManager modelManager;
+    private DatabaseManager databaseManager;
     private FileConfiguration eulaFC;
     
     private boolean isFolia = false;
     private boolean eulaAgreed = false;
+    private boolean initializationFailed = false;
 
 @Override
 public void onLoad() {
@@ -66,58 +67,32 @@ public void onLoad() {
     }
     
     eulaFC = YamlConfiguration.loadConfiguration(eulaFile);
-    String agreement = eulaFC.getString("I have read and agree", "no");
-    eulaAgreed = "yes".equalsIgnoreCase(agreement != null ? agreement.trim() : "no");  // 这里添加分号
-    
+    Object agreementValue = eulaFC.get("I have read and agree to the above terms");
+    String agreement = agreementValue == null ? "no" : String.valueOf(agreementValue).trim();
+    eulaAgreed = "yes".equalsIgnoreCase(agreement) || "true".equalsIgnoreCase(agreement);
+
     if (!eulaAgreed) {
         return;
     }
     
     // EULA 同意后才初始化
+    databaseManager = new DatabaseManager(this);
+    try {
+        databaseManager.initialize();
+        new StorageMigrationManager(this, databaseManager).migrateYamlIfNeeded();
+    } catch (Exception e) {
+        getLogger().severe("数据库初始化失败，插件将停止启用: " + e.getMessage());
+        e.printStackTrace();
+        initializationFailed = true;
+        return;
+    }
+
     banManager = new BanManager();
     muteManager = new MuteManager();
     warnManager = new WarnManager();
-    reportManager = new ReportManager(this); 
+    reportManager = new ReportManager(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
     modelManager = ModelManager.getInstance();
-
-    File ipFile = new File(getDataFolder(), "ip.yml");
-    if (!ipFile.exists()) {
-        ipFile.getParentFile().mkdirs();
-        saveResource("ip.yml", false);
-    }
-    ipFC = YamlConfiguration.loadConfiguration(ipFile);
-
-    File banFile = new File(getDataFolder(), "ban-list.yml");
-    File banIpFile = new File(getDataFolder(), "banip-list.yml");
-    File muteFile = new File(getDataFolder(), "mute-list.yml");
-    File warnFile = new File(getDataFolder(), "warn-list.yml");
-    File reportFile = new File(getDataFolder(), "reports.yml"); 
-    if (!banFile.exists()) {
-        banFile.getParentFile().mkdirs();
-        saveResource("ban-list.yml", false);
-    }
-    if (!banIpFile.exists()) {
-        banIpFile.getParentFile().mkdirs();
-        saveResource("banip-list.yml", false);
-    }
-    if (!muteFile.exists()) {
-        muteFile.getParentFile().mkdirs();
-        saveResource("mute-list.yml", false);
-    }
-    if (!warnFile.exists()) {
-        warnFile.getParentFile().mkdirs();
-        saveResource("warn-list.yml", false);
-    }
-    if (!reportFile.exists()) { 
-        reportFile.getParentFile().mkdirs();
-        saveResource("reports.yml", false);
-    }
-    banFC = YamlConfiguration.loadConfiguration(banFile);
-    banIpFC = YamlConfiguration.loadConfiguration(banIpFile);
-    muteFC = YamlConfiguration.loadConfiguration(muteFile);
-    warnFC = YamlConfiguration.loadConfiguration(warnFile);
-    reportFC = YamlConfiguration.loadConfiguration(reportFile); 
 
     File chatConfigFile = new File(getDataFolder(), "chatconfig.yml");
     if (!chatConfigFile.exists()) {
@@ -141,19 +116,24 @@ public void onLoad() {
 
     if (!broadcastFC.contains("default-message")) {
         broadcastFC.set("default-message", "§b当前封禁人数：%s 人，封禁IP数：%i 人，总计：%t 人");
-        File finalFile = broadcastFile;
-        runAsync(() -> {
-            try { 
-                broadcastFC.save(finalFile); 
-            } catch (IOException e) { 
-                e.printStackTrace(); 
-            }
-        });
+        try {
+            broadcastFC.save(broadcastFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 } 
 
 @Override
 public void onEnable() {
+    if (initializationFailed) {
+        getLogger().severe("==================================================");
+        getLogger().severe("插件启用被终止：数据库初始化失败，请检查 database 配置和数据库连接。");
+        getLogger().severe("==================================================");
+        Bukkit.getPluginManager().disablePlugin(Lengbanlist.this);
+        return;
+    }
+
     if (!eulaAgreed) {
         getLogger().severe("==================================================");
         getLogger().severe("插件启用被终止：您需要同意EULA才能使用本插件！");
@@ -252,11 +232,8 @@ public void onDisable() {
 
     if (eulaAgreed) {
         try {
-            saveBanConfig();
-            saveBanIpConfig();
-            saveMuteConfig();
             saveBroadcastConfig();
-            if (reportManager != null) reportManager.saveReports();
+            if (databaseManager != null) databaseManager.close();
         } catch (Exception e) {
             getLogger().warning("保存配置文件时出错: " + e.getMessage());
         }
@@ -387,6 +364,10 @@ private void unregisterCommands() {
         return modelChoiceListener;
     }
 
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
+    }
+
     public FileConfiguration getBanFC() {
         return banFC;
     }
@@ -416,27 +397,12 @@ private void unregisterCommands() {
     }
 
     public void saveBanConfig() {
-        try {
-            banFC.save(new File(getDataFolder(), "ban-list.yml"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     public void saveBanIpConfig() {
-        try {
-            banIpFC.save(new File(getDataFolder(), "banip-list.yml"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     public void saveMuteConfig() {
-        try {
-            muteFC.save(new File(getDataFolder(), "mute-list.yml"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     public void saveBroadcastConfig() {
@@ -448,11 +414,6 @@ private void unregisterCommands() {
     }
 
     public void saveWarnConfig() {
-        try {
-            warnFC.save(new File(getDataFolder(), "warn-list.yml"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     public ChestUIListener getChestUIListener() {

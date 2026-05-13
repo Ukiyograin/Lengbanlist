@@ -83,7 +83,7 @@ public class SetBanCommand implements CommandExecutor {
             existingBanIp.setEndTime(banDuration == Long.MAX_VALUE ? Long.MAX_VALUE : System.currentTimeMillis() + banDuration);
             existingBanIp.setReason(reason);
             existingBanIp.setAuto(isAuto);
-            banManager.saveBanIpConfig();
+            banManager.updateIpBan(existingBanIp);
         } else {
             // 更新玩家封禁
             BanEntry existingBan = banManager.getBanEntry(target);
@@ -94,7 +94,7 @@ public class SetBanCommand implements CommandExecutor {
             existingBan.setEndTime(banDuration == Long.MAX_VALUE ? Long.MAX_VALUE : System.currentTimeMillis() + banDuration);
             existingBan.setReason(reason);
             existingBan.setAuto(isAuto);
-            banManager.saveBanList();
+            banManager.updateBan(existingBan);
         }
 
         // 发送结果消息
@@ -112,7 +112,7 @@ public class SetBanCommand implements CommandExecutor {
 
     private long calculateAutoBanTime(String target) {
         int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(target).size());
-        
+
         // 自动封禁阶梯式时长
         switch (warnCount) {
             case 0:  return TimeUtils.daysToMillis(1);  // 无警告记录也封1天

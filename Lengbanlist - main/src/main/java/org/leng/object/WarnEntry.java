@@ -11,7 +11,11 @@ public class WarnEntry {
     private boolean revoked;
 
     public WarnEntry(String player, String staff, long time, String reason) {
-        this.id = UUID.randomUUID().toString(); // 自动生成一个唯一的标识符
+        this(UUID.randomUUID().toString(), player, staff, time, reason);
+    }
+
+    public WarnEntry(String id, String player, String staff, long time, String reason) {
+        this.id = id;
         this.player = player;
         this.staff = staff;
         this.time = time;
