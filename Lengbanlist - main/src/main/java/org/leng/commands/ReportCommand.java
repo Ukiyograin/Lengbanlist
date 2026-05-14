@@ -20,6 +20,11 @@ public class ReportCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!plugin.isFeatureEnabled("report")) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+
         if (!(sender instanceof Player)) {
             Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
             return true;

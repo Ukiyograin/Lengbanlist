@@ -1,6 +1,7 @@
 package org.leng;
 
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.command.CommandMap;
@@ -11,6 +12,7 @@ import org.leng.listeners.*;
 import org.leng.manager.*;
 import org.leng.utils.GitHubUpdateChecker;
 import org.leng.utils.AutoUpdateManager;
+import org.leng.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
@@ -190,11 +192,7 @@ public void onEnable() {
     new Metrics(Lengbanlist.this, 24495);
     
     // 先检查是否需要更新
-    boolean updateCheckEnabled = getConfig().getBoolean("update-check", false);
-    boolean autoUpdateEnabled = getConfig().getBoolean("auto-update", false);
-    
-    // 如果启用了自动更新，优先执行自动更新
-    if (autoUpdateEnabled) {
+    if (isFeatureEnabled("auto-update")) {
         getLogger().info("§a自动更新功能已启用，正在检查更新...");
         // 延迟5秒执行自动更新，让服务器完全启动
         runAsync(new Runnable() {
@@ -208,9 +206,7 @@ public void onEnable() {
                 }
             }
         });
-    } 
-    // 如果没有启用自动更新，但启用了更新检查
-    else if (updateCheckEnabled) { 
+    } else if (isFeatureEnabled("update-check")) {
         runAsync(new Runnable() {
             @Override
             public void run() {
@@ -219,7 +215,7 @@ public void onEnable() {
         });
     }
 
-    if (isBroadcast) {
+    if (isFeatureEnabled("broadcast") && isBroadcast) {
         startBroadcastTask();
     }
 }
@@ -301,8 +297,20 @@ public void onDisable() {
         return isBroadcast;
     }
 
+    public boolean isFeatureEnabled(String feature) {
+        return getConfig().getBoolean("features." + feature, true);
+    }
+
+    public void sendFeatureDisabled(CommandSender sender) {
+        Utils.sendMessage(sender, prefix() + "§c此功能已被管理员禁用。");
+    }
+
     public void setBroadcastEnabled(boolean broadcastEnabled) {
         this.isBroadcast = broadcastEnabled;
+        if (!isFeatureEnabled("broadcast")) {
+            if (task != null) task.cancel();
+            return;
+        }
         if (isBroadcast) {
             startBroadcastTask();
         } else {

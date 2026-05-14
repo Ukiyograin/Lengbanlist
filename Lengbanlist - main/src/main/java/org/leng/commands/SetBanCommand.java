@@ -23,6 +23,11 @@ public class SetBanCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!plugin.isFeatureEnabled("setban")) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+
         // 检查权限
         if (!(sender instanceof Player) || !sender.isOp()) {
             if (!sender.hasPermission("lengbanlist.setban")) {

@@ -21,6 +21,11 @@ public class UnwarnCommand extends Command implements CommandExecutor {
 
     @Override
     public boolean execute(CommandSender sender, String s, String[] args) {
+        if (!plugin.isFeatureEnabled("unwarn")) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+
         // 检查权限
         if (sender instanceof Player) {
             Player player = (Player) sender;

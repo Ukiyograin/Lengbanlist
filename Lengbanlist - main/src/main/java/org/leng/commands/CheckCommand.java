@@ -29,6 +29,11 @@ public class CheckCommand extends Command implements CommandExecutor {
 
     @Override
     public boolean execute(CommandSender sender, String commandLabel, String[] args) {
+        if (!plugin.isFeatureEnabled("check")) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+
         if (!sender.hasPermission("lengbanlist.check")) {
             Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
             return true;

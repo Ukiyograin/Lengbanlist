@@ -3,9 +3,28 @@ sendtime: 5 #以分钟为单位
 opensendtime: true #开启循环播报封禁人数
 Model: "Default" #当前模型
 valid-models: "Default English HuTao Furina Zhongli Keqing Xiao Ayaka Zero Herta" #可用模型
-#以下建议只选一个开启
-update-check: false # 是否启用更新检查（默认：false）
-auto-update: false # 是否启用自动更新（默认：false）
+# 功能开关 - 可单独启用或禁用各项功能，被禁用的功能执行时会提示"已被禁用"
+features:
+  ban: true            # 玩家封禁 /ban, /lban add
+  ban-ip: true         # IP封禁 /ban-ip
+  unban: true          # 解封 /unban, /lban remove
+  warn: true           # 警告 /warn, /lban warn, /warnmsg
+  unwarn: true         # 移除警告 /unwarn, /lban unwarn
+  check: true          # 查询玩家/IP /check, /lban check
+  report: true         # 举报系统 /report
+  admin: true          # 管理界面 /admin, /lban admin
+  info: true           # 插件信息 /info, /lban info
+  kick: true           # 踢出 /kick
+  mute: true           # 禁言 /lban mute/unmute/list-mute
+  setban: true         # 修改封禁时间 /setban
+  broadcast: true      # 自动循环播报封禁人数
+  chat-filter: true    # 违禁词过滤、自动禁言、可疑消息标记
+  getip: true          # 查询玩家IP /lban getip
+  model: true          # 模型切换 /lban model
+  tp: true             # 传送 /lban tp
+  chest-ui: true       # 可视化箱子界面 /lban open
+  update-check: false  # 检查插件更新
+  auto-update: false   # 自动下载更新
 
 # 数据库类型: sqlite 或 mysql
 # 旧版本的 yml 会自动按 sqlite 处理，并从旧 YAML 文件迁移数据

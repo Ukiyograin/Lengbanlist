@@ -19,6 +19,11 @@ public class KickCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!plugin.isFeatureEnabled("kick")) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+
         // 检查权限
         if (!sender.hasPermission("lengbanlist.kick")) {
             Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");

@@ -17,6 +17,11 @@ public class InfoCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!plugin.isFeatureEnabled("info")) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+
         if (!sender.hasPermission("lengbanlist.info")) {
             Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
             return true;

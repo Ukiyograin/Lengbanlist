@@ -60,6 +60,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
 
         switch (args[0].toLowerCase()) {
             case "toggle":
+                if (!plugin.isFeatureEnabled("broadcast")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.toggle")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -69,6 +73,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 Utils.sendMessage(sender, currentModel.toggleBroadcast(enabled));
                 break;
             case "a":
+                if (!plugin.isFeatureEnabled("broadcast")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.broadcast")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -86,6 +94,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 plugin.getServer().broadcastMessage(replacedMessage);
                 break;
             case "list":
+                if (!plugin.isFeatureEnabled("ban")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.list")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -110,6 +122,17 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
     Utils.sendMessage(sender, currentModel.reloadConfig());
     break;
             case "add":
+                if (args.length >= 2 && args[1].contains(".")) {
+                    if (!plugin.isFeatureEnabled("ban-ip")) {
+                        plugin.sendFeatureDisabled(sender);
+                        return true;
+                    }
+                } else {
+                    if (!plugin.isFeatureEnabled("ban")) {
+                        plugin.sendFeatureDisabled(sender);
+                        return true;
+                    }
+                }
                 if (!sender.hasPermission("lengbanlist.ban")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -137,6 +160,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 break;
             case "remove":
+                if (!plugin.isFeatureEnabled("unban")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.unban")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -161,6 +188,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 currentModel.showHelp(sender);
                 break;
             case "open":
+                if (!plugin.isFeatureEnabled("chest-ui")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.open")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -174,6 +205,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 break;
             case "getip":
+                if (!plugin.isFeatureEnabled("getip")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.getIP")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -196,6 +231,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 break;
             case "model":
+                if (!plugin.isFeatureEnabled("model")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.model")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -229,6 +268,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 break;
             case "mute":
+                if (!plugin.isFeatureEnabled("mute")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.mute")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -248,6 +291,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 break;
             case "unmute":
+                if (!plugin.isFeatureEnabled("mute")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.mute")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -261,6 +308,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 Utils.sendMessage(sender, currentModel.removeMute(unmuteTarget));
                 break;
             case "list-mute":
+                if (!plugin.isFeatureEnabled("mute")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.listmute")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -268,6 +319,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 showMuteList(sender);
                 break;
             case "warn":
+                if (!plugin.isFeatureEnabled("warn")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.warn")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -282,6 +337,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 Utils.sendMessage(sender, currentModel.addWarn(warnTarget, reason));
                 break;
             case "unwarn":
+                if (!plugin.isFeatureEnabled("unwarn")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.unwarn")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -302,6 +361,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 Utils.sendMessage(sender, currentModel.removeWarn(unwarnTarget));
                 break;
         case "report":
+            if (!plugin.isFeatureEnabled("report")) {
+                plugin.sendFeatureDisabled(sender);
+                return true;
+            }
             if (!(sender instanceof Player)) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
                 return true;
@@ -310,6 +373,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
             String[] reportArgs = Arrays.copyOfRange(args, 1, args.length);
             return new ReportCommand(plugin).onCommand(sender, this, label, reportArgs);
         case "tp":
+            if (!plugin.isFeatureEnabled("tp")) {
+                plugin.sendFeatureDisabled(sender);
+                return true;
+            }
             if (!sender.hasPermission("lengbanlist.admin")) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                 return true;
@@ -327,6 +394,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
             }
             break;
             case "admin":
+                if (!plugin.isFeatureEnabled("admin")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.admin")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -334,6 +405,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 new AdminReportCommand(plugin).onCommand(sender, this, label, args);
                 break;
             case "check":
+                if (!plugin.isFeatureEnabled("check")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.check")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -347,6 +422,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 checkCommand.execute(sender, "check", new String[]{checkTarget});
                 break;
             case "info":
+                if (!plugin.isFeatureEnabled("info")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 if (!sender.hasPermission("lengbanlist.info")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -620,6 +699,13 @@ public void onInventoryClick(InventoryClickEvent event) {
         event.setCancelled(true);
 
         Player player = (Player) event.getWhoClicked();
+
+        if (!plugin.isFeatureEnabled("chest-ui")) {
+            plugin.sendFeatureDisabled(player);
+            player.closeInventory();
+            return;
+        }
+
         ItemStack clickedItem = event.getCurrentItem();
 
         if (clickedItem == null || !clickedItem.hasItemMeta()) {
@@ -663,6 +749,27 @@ public void onInventoryClick(InventoryClickEvent event) {
 }
 
 public void startChatWizard(Player player, String action) {
+    switch (action) {
+        case "ban":
+            if (!plugin.isFeatureEnabled("ban")) {
+                plugin.sendFeatureDisabled(player);
+                return;
+            }
+            break;
+        case "unban":
+            if (!plugin.isFeatureEnabled("unban")) {
+                plugin.sendFeatureDisabled(player);
+                return;
+            }
+            break;
+        case "mute":
+        case "unmute":
+            if (!plugin.isFeatureEnabled("mute")) {
+                plugin.sendFeatureDisabled(player);
+                return;
+            }
+            break;
+    }
     player.setMetadata("lengbanlist-action", new org.bukkit.metadata.FixedMetadataValue(plugin, action));
     switch (action) {
         case "ban":
@@ -689,9 +796,19 @@ public void handleChatWizard(Player player, String input) {
 
     switch (action) {
         case "ban":
+            if (!plugin.isFeatureEnabled("ban")) {
+                plugin.sendFeatureDisabled(player);
+                clearWizard(player);
+                return;
+            }
             handleBanWizard(player, input);
             break;
         case "unban":
+            if (!plugin.isFeatureEnabled("unban")) {
+                plugin.sendFeatureDisabled(player);
+                clearWizard(player);
+                return;
+            }
             if (input.contains(".")) {
                 plugin.getBanManager().unbanIp(input);
                 Utils.sendMessage(player, plugin.prefix() + "§a解封IP成功：" + input);
@@ -702,9 +819,19 @@ public void handleChatWizard(Player player, String input) {
             clearWizard(player);
             break;
         case "mute":
+            if (!plugin.isFeatureEnabled("mute")) {
+                plugin.sendFeatureDisabled(player);
+                clearWizard(player);
+                return;
+            }
             handleMuteWizard(player, input);
             break;
         case "unmute":
+            if (!plugin.isFeatureEnabled("mute")) {
+                plugin.sendFeatureDisabled(player);
+                clearWizard(player);
+                return;
+            }
             plugin.getMuteManager().unmutePlayer(input);
             Utils.sendMessage(player, plugin.prefix() + "§a解除禁言成功：" + input);
             clearWizard(player);
@@ -731,6 +858,11 @@ private void handleBanWizard(Player player, String input) {
         String time = player.getMetadata("lengbanlist-time").get(0).asString();
         long duration = TimeUtils.parseTime(time);
         if (playerID.contains(".")) {
+            if (!plugin.isFeatureEnabled("ban-ip")) {
+                plugin.sendFeatureDisabled(player);
+                clearWizard(player);
+                return;
+            }
             plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), duration, input, false));
             Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + playerID);
         } else {

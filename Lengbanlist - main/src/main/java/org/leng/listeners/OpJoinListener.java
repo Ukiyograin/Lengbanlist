@@ -26,11 +26,7 @@ public class OpJoinListener implements Listener {
 public void onPlayerJoin(PlayerJoinEvent event) {
     Player player = event.getPlayer();
     if (player.isOp()) {
-        // 只有当启用更新检查或自动更新时才检查
-        boolean updateCheckEnabled = plugin.getConfig().getBoolean("update-check", false);
-        boolean autoUpdateEnabled = plugin.getConfig().getBoolean("auto-update", false);
-
-        if (updateCheckEnabled || autoUpdateEnabled) {
+        if (plugin.isFeatureEnabled("update-check") || plugin.isFeatureEnabled("auto-update")) {
             try {
                 String pluginVersion = plugin.getDescription().getVersion();
                 String updateUrl = "https://github.com/LengMC/Lengbanlist/releases/latest";
@@ -52,24 +48,25 @@ public void onPlayerJoin(PlayerJoinEvent event) {
             }
         }
 
-        // 显示未处理的举报数量
-        ReportManager reportManager = plugin.getReportManager();
-        int pendingReports = reportManager.getPendingReportCount();
+        // 显示未处理的举报数量（受admin功能开关控制）
+        if (plugin.isFeatureEnabled("admin")) {
+            ReportManager reportManager = plugin.getReportManager();
+            int pendingReports = reportManager.getPendingReportCount();
 
-        String greeting = getGreetingMessage();
-        TextComponent adminMessage = new TextComponent("——————————\n" +
-                plugin.prefix() + "\n" +
-                "尊敬的Admin：" + player.getName() + "\n" +
-                greeting + "，来杯咖啡，开始今天的工作吧\n" +
-                "您有" + pendingReports + "个举报没处理\n" +
-                "——————————\n");
+            String greeting = getGreetingMessage();
+            TextComponent adminMessage = new TextComponent("——————————\n" +
+                    plugin.prefix() + "\n" +
+                    "尊敬的Admin：" + player.getName() + "\n" +
+                    greeting + "，来杯咖啡，开始今天的工作吧\n" +
+                    "您有" + pendingReports + "个举报没处理\n" +
+                    "——————————\n");
 
-        TextComponent clickableAdminLink = new TextComponent("§a【点击前往】");
-        clickableAdminLink.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/lban admin"));
-        clickableAdminLink.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击前往举报管理界面").create()));
+            TextComponent clickableAdminLink = new TextComponent("§a【点击前往】");
+            clickableAdminLink.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/lban admin"));
+            clickableAdminLink.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击前往举报管理界面").create()));
 
-        // 发送消息给 OP
-        player.spigot().sendMessage(adminMessage, clickableAdminLink);
+            player.spigot().sendMessage(adminMessage, clickableAdminLink);
+        }
     }
 }
 private String getGreetingMessage() {

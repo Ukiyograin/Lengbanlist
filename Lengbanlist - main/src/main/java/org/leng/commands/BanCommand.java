@@ -20,6 +20,11 @@ public class BanCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!plugin.isFeatureEnabled("ban")) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+
         // 权限检查
         if (sender instanceof Player) {
             Player player = (Player) sender;

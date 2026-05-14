@@ -17,6 +17,11 @@ public class AllowMsgCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!plugin.isFeatureEnabled("chat-filter")) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+
         // 检查是否为OP
         if (!(sender instanceof Player) || !sender.isOp()) {
             sender.sendMessage(plugin.prefix() + "§c只有管理员可以使用此命令。");

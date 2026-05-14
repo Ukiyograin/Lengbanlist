@@ -32,6 +32,11 @@ public class ChatListener implements Listener {
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
 
+        // 检查聊天过滤功能是否启用
+        if (!plugin.isFeatureEnabled("chat-filter")) {
+            return;
+        }
+
         // 检查是否在聊天向导模式
         if (player.hasMetadata("lengbanlist-action")) {
             event.setCancelled(true);
