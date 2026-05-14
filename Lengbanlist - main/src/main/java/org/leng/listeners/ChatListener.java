@@ -9,6 +9,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.leng.Lengbanlist;
 import org.leng.manager.MuteManager;
 import org.leng.manager.WarnManager;
+import org.leng.commands.LengbanlistCommand;
 import org.leng.commands.WarnCommand;
 import org.leng.object.MuteEntry;
 import org.leng.utils.Utils;
@@ -30,6 +31,23 @@ public class ChatListener implements Listener {
     @EventHandler
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
+
+        // 检查是否在聊天向导模式
+        if (player.hasMetadata("lengbanlist-action")) {
+            event.setCancelled(true);
+            final String wizardMessage = event.getMessage();
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    org.bukkit.command.CommandExecutor executor = plugin.getCommand("lban").getExecutor();
+                    if (executor instanceof LengbanlistCommand) {
+                        ((LengbanlistCommand) executor).handleChatWizard(player, wizardMessage);
+                    }
+                }
+            }.runTask(plugin);
+            return;
+        }
+
         String message = event.getMessage();
 
         // 检查是否被禁言

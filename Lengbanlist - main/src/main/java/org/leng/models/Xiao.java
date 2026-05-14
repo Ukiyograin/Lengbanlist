@@ -39,7 +39,6 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§2✦ §b/lban unwarn <玩家名> §7- §3移除玩家的警告记录。");
     Utils.sendMessage(sender, "§7  = §b/unwarn");
     Utils.sendMessage(sender, "§2✦ §b/lban check <玩家名/IP> §7- §3检查玩家或IP的封禁状态，看看谁在捣乱！");
-    Utils.sendMessage(sender, "§2✦ §b/lban language §7- §3打开语言选择页面，选择适合的语言进行操作！");
     Utils.sendMessage(sender, "§2✦ §b/report <玩家名> <原因> §7- §3发现捣乱的家伙？快举报给魈，维护风起地的和平！");
     Utils.sendMessage(sender, "§7-> §2§l/report accept <举报编号> §7- §3受理举报，开始处理问题！");
     Utils.sendMessage(sender, "§7-> §2§l/report close <举报编号> §7- §3关闭举报，问题已解决！");

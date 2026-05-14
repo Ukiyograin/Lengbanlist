@@ -20,8 +20,15 @@ public class WarnManager {
         return Lengbanlist.getInstance().getDatabaseManager().getWarnings(target, false);
     }
 
+    public List<String> getWarnedPlayers() {
+        return Lengbanlist.getInstance().getDatabaseManager().getWarnedPlayers();
+    }
+
     public List<WarnEntry> getActiveWarnings(String target) {
-        return Lengbanlist.getInstance().getDatabaseManager().getWarnings(target, true);
+        long oneDayAgo = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
+        return Lengbanlist.getInstance().getDatabaseManager().getWarnings(target, true).stream()
+                .filter(e -> e.getTime() > oneDayAgo)
+                .collect(Collectors.toList());
     }
 
     public boolean unwarnPlayer(String target, int warnId) {
@@ -47,6 +54,13 @@ public class WarnManager {
 
         if (validWarnings.size() >= 3) {
             int triggerCount = Math.max(1, validWarnings.size() / 3);
+
+            BanEntry existingBan = Lengbanlist.getInstance().getBanManager().getBanEntry(player);
+            if (existingBan != null && existingBan.getReason().contains("LBAC")) {
+                int prevTrigger = extractTriggerCount(existingBan.getReason());
+                if (triggerCount <= prevTrigger) return;
+            }
+
             long banDuration = calculateBanDuration(triggerCount);
             String formattedDuration = TimeUtils.formatDuration(banDuration);
             BanEntry banEntry = new BanEntry(
@@ -61,6 +75,17 @@ public class WarnManager {
             String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
             Lengbanlist.getInstance().getServer().broadcastMessage(message);
         }
+    }
+
+    private int extractTriggerCount(String reason) {
+        try {
+            int start = reason.lastIndexOf("第") + 1;
+            int end = reason.indexOf("次触发");
+            if (start > 0 && end > start) {
+                return Integer.parseInt(reason.substring(start, end));
+            }
+        } catch (Exception ignored) {}
+        return 0;
     }
 
     public void checkUnbanIfNecessary(String player) {

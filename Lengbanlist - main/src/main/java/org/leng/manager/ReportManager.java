@@ -32,6 +32,10 @@ public class ReportManager {
         return plugin.getDatabaseManager().getReport(id);
     }
 
+    public List<ReportEntry> getReportsByReporterAndTarget(String reporter, String target) {
+        return plugin.getDatabaseManager().getReportsByReporterAndTarget(reporter, target);
+    }
+
     public void saveReports() {
     }
 

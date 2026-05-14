@@ -70,8 +70,8 @@ public class CheckCommand extends Command implements CommandExecutor {
         boolean isOp = player.isOp();
         List<WarnEntry> warnings = plugin.getWarnManager().getActiveWarnings(playerName);
 
-        // 特殊处理作者shazi_awa
-        String specialTag = "shazi_awa".equalsIgnoreCase(playerName) ? "§c[DEV] " : "";
+        // 特殊处理DEV作者（通过UUID判定）
+        String specialTag = "a5dc2127-d472-4c87-90b6-0b9fff386236".equals(uuid) ? "§c[DEV] " : "";
 
         Utils.sendMessage(sender, plugin.prefix() + "§a玩家信息：");
         Utils.sendMessage(sender, plugin.prefix() + "§b玩家名: " + specialTag + playerName);
@@ -81,8 +81,8 @@ public class CheckCommand extends Command implements CommandExecutor {
         Utils.sendMessage(sender, plugin.prefix() + "§b是否封禁: " + (isBanned ? "是" : "否"));
         Utils.sendMessage(sender, plugin.prefix() + "§b是否是OP: " + (isOp ? "是" : "否"));
 
-        // 如果是作者shazi_awa，显示赞助信息
-        if ("shazi_awa".equalsIgnoreCase(playerName)) {
+        // 如果是DEV作者，显示赞助信息
+        if ("a5dc2127-d472-4c87-90b6-0b9fff386236".equals(uuid)) {
             showSponsorInfo(sender);
         }
 
@@ -120,7 +120,7 @@ public class CheckCommand extends Command implements CommandExecutor {
             TextComponent sponsorButton = new TextComponent(plugin.prefix() + "§6支持作者，让他更有动力开发插件！§b[§a点击赞助§b]");
             sponsorButton.setHoverEvent(new HoverEvent(net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
                     new ComponentBuilder("§a点击支持作者§bawa").create()));
-            sponsorButton.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://afdian.com/a/lengbanlist"));
+            sponsorButton.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://afdian.com/a/lengmc"));
 
             // 发送赞助按钮
             player.spigot().sendMessage(sponsorButton);
@@ -131,7 +131,7 @@ public class CheckCommand extends Command implements CommandExecutor {
             Utils.sendMessage(player, plugin.prefix() + "§b一次性打赏：任意金额 - 表达你的支持");
         } else {
             // 如果不是玩家（例如控制台），发送普通消息
-            Utils.sendMessage(sender, plugin.prefix() + "§6支持作者，让他更有动力开发插件！§b[§a点击赞助§b] §c(https://afdian.com/a/lengbanlist)");
+            Utils.sendMessage(sender, plugin.prefix() + "§6支持作者，让他更有动力开发插件！§b[§a点击赞助§b] §c(https://afdian.com/a/lengmc)");
             Utils.sendMessage(sender, plugin.prefix() + "§b请我喝杯奶茶：￥20.00 CNY/月 - 加入感谢名单，优先反馈");
             Utils.sendMessage(sender, plugin.prefix() + "§bBETA权限组：￥50.00 CNY/月 - 解锁高级功能，优先支持");
             Utils.sendMessage(sender, plugin.prefix() + "§b一次性打赏：任意金额 - 表达你的支持");

@@ -26,28 +26,30 @@ public class OpJoinListener implements Listener {
 public void onPlayerJoin(PlayerJoinEvent event) {
     Player player = event.getPlayer();
     if (player.isOp()) {
-        try {
-            String pluginName = plugin.getDescription().getName();
-            String pluginVersion = plugin.getDescription().getVersion();
-            String updateUrl = "https://github.com/LengMC/Lengbanlist/releases/latest";
-            String latestVersion = GitHubUpdateChecker.getLatestReleaseVersion();
+        // 只有当启用更新检查或自动更新时才检查
+        boolean updateCheckEnabled = plugin.getConfig().getBoolean("update-check", false);
+        boolean autoUpdateEnabled = plugin.getConfig().getBoolean("auto-update", false);
 
-            // 检查是否有更新
-            if (GitHubUpdateChecker.isUpdateAvailable(pluginVersion)) {
-                String prefix = plugin.prefix(); // 使用 plugin.prefix() 获取前缀
-                TextComponent message = new TextComponent(prefix + " §a喵喵发现有新版本可用，当前版本：§e" + pluginVersion + "§a，最新版本：§e" + latestVersion + "§a 请前往: §b" + updateUrl);
-                TextComponent clickableLink = new TextComponent("§f【§b点击前往喵~§f】");
-                clickableLink.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, updateUrl));
-                clickableLink.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击打开更新页面喵~").create()));
+        if (updateCheckEnabled || autoUpdateEnabled) {
+            try {
+                String pluginVersion = plugin.getDescription().getVersion();
+                String updateUrl = "https://github.com/LengMC/Lengbanlist/releases/latest";
+                String latestVersion = GitHubUpdateChecker.getLatestReleaseVersion();
 
-                // 发送消息给 OP
-                player.spigot().sendMessage(message, clickableLink);
-            } else {
-                player.sendMessage(plugin.prefix() + " §a喵喵发现现在是最新版本！"); // 使用 plugin.prefix() 获取前缀
+                if (GitHubUpdateChecker.isUpdateAvailable(pluginVersion)) {
+                    String prefix = plugin.prefix();
+                    TextComponent message = new TextComponent(prefix + " §a喵喵发现有新版本可用，当前版本：§e" + pluginVersion + "§a，最新版本：§e" + latestVersion + "§a 请前往: §b" + updateUrl);
+                    TextComponent clickableLink = new TextComponent("§f【§b点击前往喵~§f】");
+                    clickableLink.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, updateUrl));
+                    clickableLink.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击打开更新页面喵~").create()));
+
+                    player.spigot().sendMessage(message, clickableLink);
+                } else {
+                    player.sendMessage(plugin.prefix() + " §a喵喵发现现在是最新版本！");
+                }
+            } catch (Exception e) {
+                player.sendMessage(plugin.prefix() + "§c无法获取最新版本信息，请检查网络连接！");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            player.sendMessage(plugin.prefix() + "§c无法获取最新版本信息，请检查网络连接！"); // 使用 plugin.prefix() 获取前缀
         }
 
         // 显示未处理的举报数量

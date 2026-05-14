@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -19,6 +20,7 @@ import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
+import org.leng.object.ReportEntry;
 import org.leng.manager.ModelManager;
 import org.leng.models.Model;
 import org.leng.utils.TimeUtils;
@@ -38,7 +40,7 @@ import java.util.List;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
-public class LengbanlistCommand extends Command implements CommandExecutor, Listener {
+public class LengbanlistCommand extends Command implements CommandExecutor, Listener, TabCompleter {
     private final Lengbanlist plugin;
     private final Gson gson = new Gson();
 
@@ -304,36 +306,24 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
                 return true;
             }
-            Player player = (Player) sender;
-
-            if (args.length < 2) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report <子命令> <参数> 或 /report <ID> <原因>");
+            // 转发给ReportCommand处理，去掉"report"参数
+            String[] reportArgs = Arrays.copyOfRange(args, 1, args.length);
+            return new ReportCommand(plugin).onCommand(sender, this, label, reportArgs);
+        case "tp":
+            if (!sender.hasPermission("lengbanlist.admin")) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                 return true;
             }
-
-            switch (args[1].toLowerCase()) {
-                case "accept":
-                    if (args.length < 3) {
-                        Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report accept <举报编号>");
-                        return true;
-                    }
-                    handleAccept(player, args[2]);
-                    break;
-                case "close":
-                    if (args.length < 3) {
-                        Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report close <举报编号>");
-                        return true;
-                    }
-                    handleClose(player, args[2]);
-                    break;
-                default:
-                    // 处理直接提交举报的逻辑
-                    if (args.length < 3) {
-                        Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report <ID> <原因>");
-                        return true;
-                    }
-                    handleReportSubmit(player, args[1], String.join(" ", Arrays.copyOfRange(args, 2, args.length)));
-                    break;
+            if (args.length < 2) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c用法: /lban tp <玩家名>");
+                return true;
+            }
+            Player targetPlayer = Bukkit.getPlayer(args[1]);
+            if (targetPlayer != null && sender instanceof Player) {
+                ((Player) sender).teleport(targetPlayer);
+                Utils.sendMessage(sender, plugin.prefix() + "§a已传送到玩家 " + targetPlayer.getName());
+            } else {
+                Utils.sendMessage(sender, plugin.prefix() + "§c玩家不在线");
             }
             break;
             case "admin":
@@ -367,41 +357,80 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         return true;
     }
 
-private void handleAccept(Player player, String reportIdStr) {
-    try {
-        int reportId = Integer.parseInt(reportIdStr);
-        Utils.sendMessage(player, plugin.prefix() + "§a举报受理成功，举报编号：" + reportId);
-    } catch (NumberFormatException e) {
-        Utils.sendMessage(player, plugin.prefix() + "§c无效的举报编号: " + reportIdStr);
-    }
-}
-
-private void handleClose(Player player, String reportIdStr) {
-    try {
-        int reportId = Integer.parseInt(reportIdStr);
-        Utils.sendMessage(player, plugin.prefix() + "§a举报关闭成功，举报编号：" + reportId);
-    } catch (NumberFormatException e) {
-        Utils.sendMessage(player, plugin.prefix() + "§c无效的举报编号: " + reportIdStr);
-    }
-}
-
-private void handleReportSubmit(Player player, String target, String reason) {
-    Utils.sendMessage(player, plugin.prefix() + "§a举报已提交: " + target + " - " + reason);
-}
-
-
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         return execute(sender, label, args);
     }
 
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+        if (args.length == 1) {
+            String prefix = args[0].toLowerCase();
+            String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
+                    "getip", "model", "mute", "unmute", "list-mute", "warn", "unwarn",
+                    "report", "admin", "check", "info", "tp"};
+            for (String s : subs) {
+                if (s.startsWith(prefix)) completions.add(s);
+            }
+        } else if (args.length == 2) {
+            String sub = args[0].toLowerCase();
+            String prefix = args[1].toLowerCase();
+            switch (sub) {
+                case "mute":
+                case "warn":
+                case "add":
+                case "check":
+                case "getip":
+                case "tp":
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
+                    }
+                    break;
+                case "unmute":
+                    for (MuteEntry e : plugin.getMuteManager().getMuteList()) {
+                        if (e.getTarget().toLowerCase().startsWith(prefix)) completions.add(e.getTarget());
+                    }
+                    break;
+                case "unwarn":
+                    for (String name : plugin.getWarnManager().getWarnedPlayers()) {
+                        if (name.toLowerCase().startsWith(prefix)) completions.add(name);
+                    }
+                    break;
+                case "remove":
+                    for (BanEntry e : plugin.getBanManager().getBanList()) {
+                        if (e.getTarget().toLowerCase().startsWith(prefix)) completions.add(e.getTarget());
+                    }
+                    break;
+                case "model":
+                    for (String name : ModelManager.getInstance().getModels().keySet()) {
+                        if (name.toLowerCase().startsWith(prefix)) completions.add(name);
+                    }
+                    break;
+            }
+        } else if (args.length >= 2 && args[0].equalsIgnoreCase("report")) {
+            if (args.length == 2) {
+                String prefix = args[1].toLowerCase();
+                for (String s : new String[]{"accept", "close"}) {
+                    if (s.startsWith(prefix)) completions.add(s);
+                }
+            } else if (args.length == 3 && (args[1].equalsIgnoreCase("accept") || args[1].equalsIgnoreCase("close"))) {
+                String prefix = args[2].toLowerCase();
+                for (ReportEntry r : plugin.getReportManager().getPendingReports()) {
+                    if (r.getId().startsWith(prefix)) completions.add(r.getId());
+                }
+            }
+        }
+        return completions;
+    }
+
     private void showBanList(CommandSender sender) {
         Utils.sendMessage(sender, "§7--§bLengbanlist 封禁名单§7--");
         for (BanEntry entry : plugin.getBanManager().getBanList()) {
-            Utils.sendMessage(sender, "§9§o被封禁者: " + entry.getTarget() + " §6处理人: " + entry.getStaff() + " §d封禁时间: " + TimeUtils.timestampToReadable(entry.getTime()) + " §l§n封禁原因: " + entry.getReason());
+            Utils.sendMessage(sender, "§c被封禁者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e封禁原因：§f" + entry.getReason() + " §f解封时间：" + TimeUtils.timestampToReadable(entry.getTime()));
         }
         for (BanIpEntry entry : plugin.getBanManager().getBanIpList()) {
-            Utils.sendMessage(sender, "§9§o被封禁 IP: " + entry.getIp() + " §6处理人: " + entry.getStaff() + " §d封禁时间: " + TimeUtils.timestampToReadable(entry.getTime()) + " §l§n封禁原因: " + entry.getReason());
+            Utils.sendMessage(sender, "§c被封禁IP：§f" + entry.getIp() + " §e处理人：§f" + entry.getStaff() + " §e封禁原因：§f" + entry.getReason() + " §f解封时间：" + TimeUtils.timestampToReadable(entry.getTime()));
         }
     }
 
@@ -484,7 +513,7 @@ private void handleReportSubmit(Player player, String target, String reason) {
         ItemStack sponsor = createItem(
                 "§6赞助作者", 
                 "§7点击打开赞助链接", 
-                "§7https://afdian.com/a/lengbanlist", 
+                "§7https://afdian.com/a/lengmc",
                 Sound.BLOCK_NOTE_BLOCK_PLING,
                 player
         );
@@ -598,6 +627,7 @@ public void onInventoryClick(InventoryClickEvent event) {
         }
 
         String command = clickedItem.getItemMeta().getLore().get(0).replace("§7", "");
+        player.closeInventory();
 
         switch (command) {
             case "/lban toggle":
@@ -609,27 +639,127 @@ public void onInventoryClick(InventoryClickEvent event) {
                 player.performCommand(command);
                 break;
             case "/lban add":
-                plugin.getChestUIListener().openAnvilForBan(player, "playerID");
+                startChatWizard(player, "ban");
                 break;
             case "/lban remove":
-                plugin.getChestUIListener().openAnvilForUnban(player);
+                startChatWizard(player, "unban");
                 break;
-            case "/lban model": 
+            case "/lban model":
                 ModelManager.getInstance().openModelSelectionUI(player);
                 break;
             case "/lban mute":
-                plugin.getChestUIListener().openAnvilForMute(player, "playerID");
+                startChatWizard(player, "mute");
                 break;
             case "/lban unmute":
-                plugin.getChestUIListener().openAnvilForUnmute(player);
+                startChatWizard(player, "unmute");
                 break;
             default:
                 if (command.startsWith("/")) {
-                    player.performCommand(command.substring(1));  
+                    player.performCommand(command.substring(1));
                 }
                 break;
         }
     }
+}
 
+public void startChatWizard(Player player, String action) {
+    player.setMetadata("lengbanlist-action", new org.bukkit.metadata.FixedMetadataValue(plugin, action));
+    switch (action) {
+        case "ban":
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f玩家名或IP§e：");
+            break;
+        case "unban":
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解封的玩家名或IP§e：");
+            break;
+        case "mute":
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f禁言的玩家名§e：");
+            break;
+        case "unmute":
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解除禁言的玩家名§e：");
+            break;
     }
+}
+
+public void handleChatWizard(Player player, String input) {
+    if (!player.hasMetadata("lengbanlist-action")) return;
+
+    String action = player.getMetadata("lengbanlist-action").get(0).asString();
+
+    switch (action) {
+        case "ban":
+            handleBanWizard(player, input);
+            break;
+        case "unban":
+            if (input.contains(".")) {
+                plugin.getBanManager().unbanIp(input);
+                Utils.sendMessage(player, plugin.prefix() + "§a解封IP成功：" + input);
+            } else {
+                plugin.getBanManager().unbanPlayer(input);
+                Utils.sendMessage(player, plugin.prefix() + "§a解封玩家成功：" + input);
+            }
+            clearWizard(player);
+            break;
+        case "mute":
+            handleMuteWizard(player, input);
+            break;
+        case "unmute":
+            plugin.getMuteManager().unmutePlayer(input);
+            Utils.sendMessage(player, plugin.prefix() + "§a解除禁言成功：" + input);
+            clearWizard(player);
+            break;
+    }
+}
+
+private void handleBanWizard(Player player, String input) {
+    String step = player.getMetadata("lengbanlist-step").get(0).asString();
+    if (step.equals("playerID")) {
+        player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
+        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever）：");
+    } else if (step.equals("time")) {
+        if (!TimeUtils.isValidTime(input)) {
+            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever");
+            return;
+        }
+        player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
+        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁原因§e：");
+    } else if (step.equals("reason")) {
+        String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
+        String time = player.getMetadata("lengbanlist-time").get(0).asString();
+        long duration = TimeUtils.parseTime(time);
+        if (playerID.contains(".")) {
+            plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), duration, input, false));
+            Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + playerID);
+        } else {
+            plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), duration, input, false));
+            Utils.sendMessage(player, plugin.prefix() + "§a封禁玩家成功：" + playerID);
+        }
+        clearWizard(player);
+    }
+}
+
+private void handleMuteWizard(Player player, String input) {
+    String step = player.getMetadata("lengbanlist-step").get(0).asString();
+    if (step.equals("playerID")) {
+        player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
+        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言原因§e：");
+    } else if (step.equals("reason")) {
+        String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
+        MuteEntry entry = new MuteEntry(playerID, player.getName(), System.currentTimeMillis(), input);
+        plugin.getMuteManager().mutePlayer(entry);
+        Utils.sendMessage(player, plugin.prefix() + "§a禁言玩家成功：" + playerID);
+        clearWizard(player);
+    }
+}
+
+private void clearWizard(Player player) {
+    player.removeMetadata("lengbanlist-action", plugin);
+    player.removeMetadata("lengbanlist-step", plugin);
+    player.removeMetadata("lengbanlist-playerID", plugin);
+    player.removeMetadata("lengbanlist-time", plugin);
+}
 }

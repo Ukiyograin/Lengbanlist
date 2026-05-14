@@ -280,6 +280,19 @@ public class DatabaseManager {
         return entries;
     }
 
+    public List<String> getWarnedPlayers() {
+        List<String> players = new ArrayList<>();
+        try (Statement st = connection.createStatement();
+             ResultSet rs = st.executeQuery("SELECT DISTINCT player FROM warnings")) {
+            while (rs.next()) {
+                players.add(rs.getString("player"));
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return players;
+    }
+
     public void upsertReport(ReportEntry entry) {
         executeUpdate(upsertSql("reports", "id", new String[]{"id", "target", "reporter", "reason", "status", "timestamp"}, new String[]{"target", "reporter", "reason", "status", "timestamp"}), entry.getId(), entry.getTarget(), entry.getReporter(), entry.getReason(), status(entry.getStatus()), entry.getTimestamp());
     }
@@ -321,6 +334,22 @@ public class DatabaseManager {
 
     public int getReportCount(String target) {
         return count("SELECT COUNT(*) FROM reports WHERE target = ?", target);
+    }
+
+    public List<ReportEntry> getReportsByReporterAndTarget(String reporter, String target) {
+        List<ReportEntry> entries = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE reporter = ? AND target = ? ORDER BY timestamp DESC")) {
+            ps.setString(1, reporter);
+            ps.setString(2, target);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readReport(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
     }
 
     public String getMeta(String key) {

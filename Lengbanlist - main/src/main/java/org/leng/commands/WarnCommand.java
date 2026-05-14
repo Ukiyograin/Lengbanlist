@@ -44,9 +44,6 @@ public class WarnCommand extends Command implements CommandExecutor {
         // 检查是否是 IP
         boolean isIp = target.contains(".");
 
-        // 获取有效警告记录（未撤销的）
-        List<WarnEntry> activeWarnings = warnManager.getActiveWarnings(target);
-
         // 检查是否是 IP 地址
         if (isIp) {
             if (!plugin.getBanManager().isValidIp(target)) {
@@ -59,13 +56,7 @@ public class WarnCommand extends Command implements CommandExecutor {
             return true;
         }
 
-        // 玩家警告逻辑
-        if (activeWarnings.size() >= 3) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + target + " 已被警告 3 次，无法再次警告喵！");
-            Utils.sendMessage(sender, plugin.prefix() + "§c请/unwarn " + target + " ，再执行警告操作喵！");
-            return false;
-        }
-
+        // 玩家警告逻辑 - 允许超过3次警告，警告将在1天后自动过期
         warnManager.warnPlayer(target, sender.getName(), reason);
         Utils.sendMessage(sender, plugin.prefix() + "§a已警告玩家 " + target + ": " + reason);
 

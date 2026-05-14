@@ -39,12 +39,9 @@ public class AdminReportCommand implements CommandExecutor {
     private void showAdminReportUI(Player player) {
         ReportManager reportManager = plugin.getReportManager();
 
-        // 获取未关闭的举报数量
         int pendingReports = reportManager.getPendingReportCount();
-        // 获取当前在线管理员数量
         int onlineAdmins = (int) Bukkit.getOnlinePlayers().stream().filter(p -> p.isOp()).count();
 
-        // 构建举报管理界面消息
         String adminUI = "§7————————————————\n" +
                 "§bLengbanlist Report Admin\n" +
                 "§e当前待处理举报数：§c" + pendingReports + "\n" +
@@ -53,7 +50,6 @@ public class AdminReportCommand implements CommandExecutor {
 
         player.sendMessage(adminUI);
 
-        // 获取所有未关闭的举报
         List<ReportEntry> reports = reportManager.getPendingReports();
         if (reports.isEmpty()) {
             player.sendMessage("§a暂无待处理的举报！");
@@ -61,22 +57,38 @@ public class AdminReportCommand implements CommandExecutor {
         }
 
         for (ReportEntry report : reports) {
+            Player targetPlayer = Bukkit.getPlayer(report.getTarget());
+            Player reporterPlayer = Bukkit.getPlayer(report.getReporter());
+
+            String targetLoc = "";
+            if (targetPlayer != null) {
+                targetLoc = " §7(世界:" + targetPlayer.getWorld().getName() + " X:" + (int)targetPlayer.getLocation().getX() + " Y:" + (int)targetPlayer.getLocation().getY() + " Z:" + (int)targetPlayer.getLocation().getZ() + ")";
+            }
+            String reporterLoc = "";
+            if (reporterPlayer != null) {
+                reporterLoc = " §7(世界:" + reporterPlayer.getWorld().getName() + " X:" + (int)reporterPlayer.getLocation().getX() + " Y:" + (int)reporterPlayer.getLocation().getY() + " Z:" + (int)reporterPlayer.getLocation().getZ() + ")";
+            }
+
             String status = report.getStatus() == null ? "" : "§a【当前状态：" + report.getStatus() + "】";
-            String reportInfo = "§e被举报人：§c" + report.getTarget() + " §e举报人：§c" + report.getReporter() + " §e举报原因:§c" + report.getReason() + " §e举报编号：" + report.getId() + "\n" +
-                    status +
-                    "§a【点击受理】§b【点击关闭】§c【点击封禁】\n" +
-                    "§7————————————————\n";
+            player.sendMessage("§7————————————————");
+            player.sendMessage("§e举报编号：§f" + report.getId() + " " + status);
+            player.sendMessage("§e举报原因：§f" + report.getReason());
 
-            // 发送可点击的举报信息
-            sendClickableReportMessage(player, reportInfo, report);
-        }
-    }
+            player.spigot().sendMessage(
+                new net.md_5.bungee.api.chat.TextComponent("§e被举报人："),
+                Utils.clickableText("§c" + report.getTarget() + targetLoc, "/lban tp " + report.getTarget()),
+                new net.md_5.bungee.api.chat.TextComponent(" §e举报人："),
+                Utils.clickableText("§a" + report.getReporter() + reporterLoc, "/lban tp " + report.getReporter())
+            );
 
-    private void sendClickableReportMessage(Player player, String message, ReportEntry report) {
-        player.spigot().sendMessage(
+            player.spigot().sendMessage(
                 Utils.clickableText("§a【点击受理】", "/report accept " + report.getId()),
+                new net.md_5.bungee.api.chat.TextComponent(" "),
                 Utils.clickableText("§b【点击关闭】", "/report close " + report.getId()),
-                Utils.clickableText("§c【点击封禁】", "/ban " + report.getTarget())
-        );
+                new net.md_5.bungee.api.chat.TextComponent(" "),
+                Utils.clickableText("§c【点击封禁】", "/lban add " + report.getTarget() + " ")
+            );
+            player.sendMessage("§7————————————————");
+        }
     }
 }
