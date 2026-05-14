@@ -7,8 +7,8 @@
 
 **[Multi-platform Links](readme-website.md)** |
 *[Read in Advance](Notice.md)* |
-**[Developer Notes](PullRequest_zh.md)** |
-*[License Notice](Mustn't_zh.md)* |
+**[Developer Notes](PullRequest_en.md)** |
+*[License Notice](Mustn't_en.md)* |
 **[Discord](https://discord.gg/aeWjf7vD)**
 </div>
 
