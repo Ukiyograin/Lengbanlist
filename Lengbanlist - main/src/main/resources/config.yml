@@ -1,4 +1,4 @@
-prefix: "§f§l[§bLengbanlist§f§l]" #插件前缀
+prefix: "§f§l[§x§0§8§4§c§f§bL§x§1§9§5§d§f§be§x§2§9§6§d§f§bn§x§3§a§7§e§f§cg§x§4§a§8§f§f§cb§x§5§b§a§0§f§ca§x§6§b§b§0§f§cn§x§7§c§c§1§f§cl§x§8§c§d§2§f§di§x§9§d§e§2§f§ds§x§a§d§f§3§f§dt§f§l]" #插件前缀
 sendtime: 5 #以分钟为单位
 opensendtime: true #开启循环播报封禁人数
 Model: "Default" #当前模型
@@ -26,6 +26,9 @@ features:
   chest-ui: true       # 可视化箱子界面 /lban open
   update-check: true  # 检查插件更新
   auto-update: false   # 自动下载更新
+
+# 历史记录保留天数（过期/解封的封禁记录保留N天后自动清理，默认7天）
+history-retention-days: 7
 
 # 数据库类型: sqlite 或 mysql
 # 旧版本的 yml 会自动按 sqlite 处理，并从旧 YAML 文件迁移数据

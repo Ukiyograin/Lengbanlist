@@ -1,12 +1,16 @@
 package org.leng.commands;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.manager.ModelManager;
 import org.leng.models.Model;
 import org.leng.object.BanEntry;
+import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.WarnEntry;
 import org.leng.utils.TimeUtils;
@@ -16,11 +20,25 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-public class HistoryCommand implements CommandExecutor {
+public class HistoryCommand implements CommandExecutor, TabCompleter {
     private final Lengbanlist plugin;
 
     public HistoryCommand(Lengbanlist plugin) {
         this.plugin = plugin;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+        if (args.length == 1) {
+            String prefix = args[0].toLowerCase();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getName().toLowerCase().startsWith(prefix)) {
+                    completions.add(p.getName());
+                }
+            }
+        }
+        return completions;
     }
 
     @Override
@@ -34,15 +52,23 @@ public class HistoryCommand implements CommandExecutor {
             return true;
         }
         if (args.length < 1) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /" + label + " <玩家名>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /" + label + " <玩家名/IP>");
             return true;
         }
 
         String target = args[0];
         List<HistoryEntry> raw = new ArrayList<>();
 
-        for (BanEntry ban : plugin.getDatabaseManager().getBansByPlayer(target)) {
-            raw.add(new HistoryEntry(ban.getTime(), "ban", ban));
+        boolean isIp = target.contains(".");
+
+        if (isIp) {
+            for (BanIpEntry ban : plugin.getDatabaseManager().getIpBansByIp(target)) {
+                raw.add(new HistoryEntry(ban.getTime(), "ipban", ban));
+            }
+        } else {
+            for (BanEntry ban : plugin.getDatabaseManager().getBansByPlayer(target)) {
+                raw.add(new HistoryEntry(ban.getTime(), "ban", ban));
+            }
         }
 
         for (MuteEntry mute : plugin.getDatabaseManager().getMutesByPlayer(target)) {
@@ -57,7 +83,17 @@ public class HistoryCommand implements CommandExecutor {
 
         List<String> entries = new ArrayList<>();
         for (HistoryEntry he : raw) {
-            entries.add(he.format());
+            String line = he.format();
+            if (!line.isEmpty()) entries.add(line);
+        }
+
+        if (entries.isEmpty()) {
+            if (isIp) {
+                Utils.sendMessage(sender, plugin.prefix() + "§7该IP暂无封禁记录。");
+            } else {
+                Utils.sendMessage(sender, plugin.prefix() + "§7该玩家暂无处罚记录。");
+            }
+            return true;
         }
 
         Model model = ModelManager.getInstance().getCurrentModel();
@@ -83,22 +119,27 @@ public class HistoryCommand implements CommandExecutor {
             switch (type) {
                 case "ban": {
                     BanEntry b = (BanEntry) data;
+                    boolean inactive = !b.isActive();
                     boolean expired = b.isExpired();
                     boolean permanent = b.getTime() == Long.MAX_VALUE;
-                    String expiredStr;
-                    String expiryStr;
-                    if (permanent) {
-                        expiredStr = "§c否";
-                        expiryStr = "永久";
-                    } else if (expired) {
-                        expiredStr = "§a是";
-                        expiryStr = TimeUtils.timestampToReadable(b.getTime());
-                    } else {
-                        expiredStr = "§c否";
-                        expiryStr = TimeUtils.timestampToReadable(b.getTime());
+                    if (inactive || expired) {
+                        String expiryAt = permanent ? "永久" : TimeUtils.timestampToReadable(b.getTime());
+                        return "§7- §c封禁 §7| §a已过期 §7| 过期时间: §f" + expiryAt + " §7| 处理人: §b" + b.getStaff() + " §7| 原因: §f" + b.getReason();
                     }
-                    String autoTag = b.isAuto() ? " §7[LBAC自动]" : "";
-                    return "§7- §c封禁 §7| 是否过期: " + expiredStr + " §7| 过期时间: §f" + expiryStr + " §7| 处理人: §b" + b.getStaff() + " §7| 原因: §f" + b.getReason() + autoTag;
+                    String expiryStr = permanent ? "永久" : TimeUtils.timestampToReadable(b.getTime());
+                    return "§7- §c封禁 §7| 处理人: §b" + b.getStaff() + " §7| 封禁至: §f" + expiryStr + " §7| 原因: §f" + b.getReason();
+                }
+                case "ipban": {
+                    BanIpEntry b = (BanIpEntry) data;
+                    boolean inactive = !b.isActive();
+                    boolean expired = b.isExpired();
+                    boolean permanent = b.getTime() == Long.MAX_VALUE;
+                    if (inactive || expired) {
+                        String expiryAt = permanent ? "永久" : TimeUtils.timestampToReadable(b.getTime());
+                        return "§7- §cIP封禁 §7| §a已过期 §7| 过期时间: §f" + expiryAt + " §7| 处理人: §b" + b.getStaff() + " §7| 原因: §f" + b.getReason();
+                    }
+                    String expiryStr = permanent ? "永久" : TimeUtils.timestampToReadable(b.getTime());
+                    return "§7- §cIP封禁 §7| 处理人: §b" + b.getStaff() + " §7| 封禁至: §f" + expiryStr + " §7| 原因: §f" + b.getReason();
                 }
                 case "mute": {
                     MuteEntry m = (MuteEntry) data;

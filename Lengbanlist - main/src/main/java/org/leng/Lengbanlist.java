@@ -29,6 +29,7 @@ public class Lengbanlist extends JavaPlugin {
     public WarnManager warnManager;
     public ReportManager reportManager;
     public SchedulerUtils.SchedulerTask broadcastTask;
+    private SchedulerUtils.SchedulerTask historyCleanupTask;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -93,22 +94,9 @@ public void onLoad() {
     File broadcastFile = new File(getDataFolder(), "broadcast.yml");
     if (!broadcastFile.exists()) {
         broadcastFile.getParentFile().mkdirs();
-        try {
-            broadcastFile.createNewFile();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        saveResource("broadcast.yml", false);
     }
     broadcastFC = YamlConfiguration.loadConfiguration(broadcastFile);
-
-    if (!broadcastFC.contains("default-message")) {
-        broadcastFC.set("default-message", "§f[§b§oServer §f§oNetwork§f] §6当前§c已封禁 §f%t §c人 §b(§f%s §c个ID §c已封禁 §f%i §c个IP §b)§4§n禁止私自盗取物品，破坏机器，损坏建筑！§f如遭遇此类事件，请进群处理：§bxxxxxxx");
-        try {
-            broadcastFC.save(broadcastFile);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
 }
 
@@ -167,7 +155,9 @@ public void onEnable() {
     getCommand("allowmsg").setExecutor(new AllowMsgCommand(Lengbanlist.this));
     getCommand("warnmsg").setExecutor(new WarnMsgCommand(Lengbanlist.this));
     getCommand("setban").setExecutor(new SetBanCommand(Lengbanlist.this));
-    getCommand("history").setExecutor(new HistoryCommand(Lengbanlist.this));
+    HistoryCommand historyCmd = new HistoryCommand(Lengbanlist.this);
+    getCommand("history").setExecutor(historyCmd);
+    getCommand("history").setTabCompleter(historyCmd);
     getCommand("mute").setExecutor(new MuteCommand(Lengbanlist.this));
     getCommand("unmute").setExecutor(new UnmuteCommand(Lengbanlist.this));
     getCommand("listmute").setExecutor(new ListMuteCommand(Lengbanlist.this));
@@ -195,6 +185,8 @@ public void onEnable() {
     if (isFeatureEnabled("broadcast") && isBroadcast) {
         startBroadcastTask();
     }
+
+    startHistoryCleanupTask();
 }
 
 @Override
@@ -202,6 +194,7 @@ public void onDisable() {
     getServer().getConsoleSender().sendMessage(prefix() + "§k§4正在卸载");
 
     if (broadcastTask != null) broadcastTask.cancel();
+    if (historyCleanupTask != null) historyCleanupTask.cancel();
 
     if (eulaAgreed) {
         try {
@@ -220,6 +213,15 @@ public void onDisable() {
         long delay = 200L;
         broadcastTask = SchedulerUtils.runTaskTimer(this,
                 new BroadCastBanCountMessage(), delay, interval);
+    }
+
+    private void startHistoryCleanupTask() {
+        int retentionDays = getConfig().getInt("history-retention-days", 7);
+        if (retentionDays <= 0) return;
+        historyCleanupTask = SchedulerUtils.runTaskTimerAsynchronously(this, () -> {
+            databaseManager.deactivateExpiredBans();
+            databaseManager.cleanupOldBans(retentionDays);
+        }, 6000L, 72000L);
     }
 
     public String prefix() {

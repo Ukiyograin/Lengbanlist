@@ -61,7 +61,13 @@ public class CheckCommand extends Command implements CommandExecutor {
     }
 
     private void checkPlayerInfo(CommandSender sender, String playerName) {
-        OfflinePlayer player = Bukkit.getOfflinePlayer(playerName);
+        OfflinePlayer player;
+        try {
+            player = Bukkit.getOfflinePlayer(playerName);
+        } catch (Exception e) {
+            Utils.sendMessage(sender, plugin.prefix() + "§c未找到玩家：" + playerName);
+            return;
+        }
         if (!player.hasPlayedBefore() && !player.isOnline()) {
             Utils.sendMessage(sender, plugin.prefix() + "§c未找到玩家：" + playerName);
             return;

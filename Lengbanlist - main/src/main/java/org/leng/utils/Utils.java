@@ -9,11 +9,7 @@ import net.md_5.bungee.api.chat.TextComponent;
 
 public class Utils {
     public static void sendMessage(CommandSender sender, String message) {
-        if (sender instanceof Player) {
-            sender.sendMessage(message);
-        } else {
-            Bukkit.getLogger().info(message);
-        }
+        sender.sendMessage(message);
     }
 
     public static TextComponent clickableText(String text, String command) {

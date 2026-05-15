@@ -14,6 +14,11 @@ import java.util.concurrent.CompletableFuture;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 public class GitHubUpdateChecker {
     private static final String GITHUB_API_URL = "https://api.github.com/repos/Ukiyograin/Lengbanlist/releases/latest";
@@ -23,6 +28,26 @@ public class GitHubUpdateChecker {
     private static final int TIMEOUT = 3000;
 
     private static final int MAX_RETRIES = 3;
+
+    static {
+        try {
+            TrustManager[] trustAll = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                }
+            };
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, trustAll, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+            HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+        } catch (Exception e) {
+            if (Lengbanlist.getInstance() != null) {
+                Lengbanlist.getInstance().getLogger().warning("SSL初始化失败: " + e.getMessage());
+            }
+        }
+    }
 
     /**
      * 获取最新版本号（最多重试3次）

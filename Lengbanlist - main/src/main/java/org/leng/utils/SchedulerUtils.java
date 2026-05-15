@@ -75,7 +75,7 @@ public class SchedulerUtils {
             } catch (Exception e) {
                 plugin.getLogger().warning("Folia global run failed: " + e.getMessage());
                 task.run();
-                return new SchedulerTask(null);
+                return new SchedulerTask((Object) null);
             }
         }
         BukkitTask bt = Bukkit.getScheduler().runTask(plugin, task);
@@ -89,7 +89,7 @@ public class SchedulerUtils {
                 return new SchedulerTask(result);
             } catch (Exception e) {
                 plugin.getLogger().warning("Folia global runDelayed failed: " + e.getMessage());
-                return new SchedulerTask(null);
+                return new SchedulerTask((Object) null);
             }
         }
         BukkitTask bt = Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
@@ -103,7 +103,7 @@ public class SchedulerUtils {
                 return new SchedulerTask(result);
             } catch (Exception e) {
                 plugin.getLogger().warning("Folia global runAtFixedRate failed: " + e.getMessage());
-                return new SchedulerTask(null);
+                return new SchedulerTask((Object) null);
             }
         }
         BukkitTask bt = Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks);
@@ -137,20 +137,71 @@ public class SchedulerUtils {
         }
     }
 
+    // ─── Async repeating task ───
+
+    public static SchedulerTask runTaskTimerAsynchronously(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
+        if (folia) {
+            return new SchedulerTask(new FoliaAsyncRepeatingTask(plugin, task, delayTicks, periodTicks));
+        }
+        BukkitTask bt = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delayTicks, periodTicks);
+        return new SchedulerTask(bt);
+    }
+
+    private static class FoliaAsyncRepeatingTask {
+        private volatile boolean cancelled;
+        private final Lengbanlist plugin;
+        private final Runnable task;
+        private final long periodMs;
+
+        FoliaAsyncRepeatingTask(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
+            this.plugin = plugin;
+            this.task = task;
+            this.periodMs = periodTicks * 50;
+            scheduleNext(delayTicks * 50);
+        }
+
+        private void scheduleNext(long delayMs) {
+            if (cancelled) return;
+            try {
+                asyncRunDelayed.invoke(asyncScheduler, plugin, (Consumer<Object>) t -> {
+                    if (!cancelled) {
+                        task.run();
+                        scheduleNext(periodMs);
+                    }
+                }, delayMs);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Folia async repeating task failed: " + e.getMessage());
+            }
+        }
+
+        void cancel() {
+            cancelled = true;
+        }
+    }
+
     // ─── SchedulerTask wrapper ───
 
     public static class SchedulerTask {
         private final Object foliaTask;
         private final BukkitTask bukkitTask;
+        private final FoliaAsyncRepeatingTask foliaRepeatingTask;
 
         SchedulerTask(Object foliaTask) {
             this.foliaTask = foliaTask;
             this.bukkitTask = null;
+            this.foliaRepeatingTask = null;
         }
 
         SchedulerTask(BukkitTask bukkitTask) {
             this.foliaTask = null;
             this.bukkitTask = bukkitTask;
+            this.foliaRepeatingTask = null;
+        }
+
+        SchedulerTask(FoliaAsyncRepeatingTask foliaRepeatingTask) {
+            this.foliaTask = null;
+            this.bukkitTask = null;
+            this.foliaRepeatingTask = foliaRepeatingTask;
         }
 
         public void cancel() {
@@ -161,6 +212,9 @@ public class SchedulerUtils {
             }
             if (bukkitTask != null) {
                 bukkitTask.cancel();
+            }
+            if (foliaRepeatingTask != null) {
+                foliaRepeatingTask.cancel();
             }
         }
     }

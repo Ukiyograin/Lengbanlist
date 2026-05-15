@@ -112,11 +112,20 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
     ModelManager.getInstance().reloadModel();
 
     File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
-    String reloadDefaultMessage = plugin.getConfig().getString("default-message");
-    if (reloadDefaultMessage != null) {
-        plugin.getServer().broadcastMessage(
-            reloadDefaultMessage.replace("%s", String.valueOf(plugin.getBanManager().getBanList().size()))
-        );
+    if (broadcastFile.exists()) {
+        try {
+            plugin.getBroadcastFC().load(broadcastFile);
+        } catch (Exception e) {
+            plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
+        }
+    }
+    File chatConfigFile = new File(plugin.getDataFolder(), "chatconfig.yml");
+    if (chatConfigFile.exists()) {
+        try {
+            plugin.getChatConfig().load(chatConfigFile);
+        } catch (Exception e) {
+            plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
+        }
     }
     Utils.sendMessage(sender, currentModel.reloadConfig());
     break;
@@ -449,7 +458,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 String[] histArgs = Arrays.copyOfRange(args, 1, args.length);
                 return new HistoryCommand(plugin).onCommand(sender, this, "history", histArgs);
-
+            default:
+                Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令: §f" + args[0] + "§c，输入 §f/lban help §c查看可用命令。");
+                break;
         }
         return true;
     }

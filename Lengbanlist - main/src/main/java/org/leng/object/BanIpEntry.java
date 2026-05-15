@@ -3,16 +3,22 @@ package org.leng.object;
 public class BanIpEntry {
     private String ip;
     private String staff;
-    private long time; 
+    private long time;
     private String reason;
     private boolean isAuto;
+    private boolean active;
 
     public BanIpEntry(String ip, String staff, long time, String reason, boolean isAuto) {
+        this(ip, staff, time, reason, isAuto, true);
+    }
+
+    public BanIpEntry(String ip, String staff, long time, String reason, boolean isAuto, boolean active) {
         this.ip = ip;
         this.staff = staff;
         this.time = time;
         this.reason = reason;
         this.isAuto = isAuto;
+        this.active = active;
     }
 
     // Getters and setters
@@ -66,6 +72,14 @@ public class BanIpEntry {
         this.isAuto = isAuto;
     }
 
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     // 计算剩余封禁时间
     public long getRemainingTime() {
         return Math.max(0, time - System.currentTimeMillis());
@@ -78,6 +92,6 @@ public class BanIpEntry {
 
     @Override
     public String toString() {
-        return ip + ":" + staff + ":" + time + ":" + reason + ":" + isAuto;
+        return ip + ":" + staff + ":" + time + ":" + reason + ":" + isAuto + ":" + active;
     }
 }

@@ -78,8 +78,8 @@ public class DatabaseManager {
     public void ensureSchema() throws SQLException {
         execute("CREATE TABLE IF NOT EXISTS schema_meta (meta_key " + textPrimaryKey() + ", meta_value " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS player_ips (player_name " + textPrimaryKey() + ", ip " + textType() + " NOT NULL, updated_at " + longType() + " NOT NULL)");
-        execute("CREATE TABLE IF NOT EXISTS bans (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0)");
-        execute("CREATE TABLE IF NOT EXISTS ip_bans (ip " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0)");
+        execute("CREATE TABLE IF NOT EXISTS bans (id " + integerPrimaryKey() + ", target " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
+        execute("CREATE TABLE IF NOT EXISTS ip_bans (id " + integerPrimaryKey() + ", ip " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
         execute("CREATE TABLE IF NOT EXISTS mutes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS warnings (id " + textPrimaryKey() + ", player " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, warn_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, revoked " + booleanType() + " NOT NULL DEFAULT 0)");
         execute("CREATE TABLE IF NOT EXISTS reports (id " + textPrimaryKey() + ", target " + textType() + " NOT NULL, reporter " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, status " + varcharType(32) + " NOT NULL DEFAULT '未处理', timestamp " + longType() + " NOT NULL)");
@@ -91,10 +91,12 @@ public class DatabaseManager {
         addColumnIfMissing("bans", "end_time", longType() + " NOT NULL DEFAULT 0");
         addColumnIfMissing("bans", "reason", nullableTextType());
         addColumnIfMissing("bans", "is_auto", booleanType() + " NOT NULL DEFAULT 0");
+        addColumnIfMissing("bans", "active", booleanType() + " NOT NULL DEFAULT 1");
         addColumnIfMissing("ip_bans", "staff", nullableTextType());
         addColumnIfMissing("ip_bans", "end_time", longType() + " NOT NULL DEFAULT 0");
         addColumnIfMissing("ip_bans", "reason", nullableTextType());
         addColumnIfMissing("ip_bans", "is_auto", booleanType() + " NOT NULL DEFAULT 0");
+        addColumnIfMissing("ip_bans", "active", booleanType() + " NOT NULL DEFAULT 1");
         addColumnIfMissing("mutes", "staff", nullableTextType());
         addColumnIfMissing("mutes", "end_time", longType() + " NOT NULL DEFAULT 0");
         addColumnIfMissing("mutes", "reason", nullableTextType());
@@ -112,7 +114,36 @@ public class DatabaseManager {
         createIndexIfMissing("warnings", "idx_warnings_player", "player");
         createIndexIfMissing("reports", "idx_reports_target", "target");
         createIndexIfMissing("reports", "idx_reports_reporter", "reporter");
-        setMeta("schema.version", "1");
+
+        String currentVersion = getMeta("schema.version");
+        if (currentVersion == null || Integer.parseInt(currentVersion) < 3) {
+            migrateToV3();
+        }
+        setMeta("schema.version", "3");
+    }
+
+    private void migrateToV3() throws SQLException {
+        plugin.getLogger().info("正在升级数据库结构...");
+        migrateBanTableToV3("bans");
+        migrateBanTableToV3("ip_bans");
+        plugin.getLogger().info("数据库结构升级完成。");
+    }
+
+    private void migrateBanTableToV3(String table) throws SQLException {
+        if (!columnExists(table, "id")) {
+            String idCol = mysql ? "INT AUTO_INCREMENT PRIMARY KEY" : "INTEGER PRIMARY KEY AUTOINCREMENT";
+            String newTable = table + "_v3";
+            execute("CREATE TABLE " + newTable + " (id " + idCol + ", " + (table.equals("bans") ? "target" : "ip") + " " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
+            String srcCol = table.equals("bans") ? "target" : "ip";
+            execute("INSERT INTO " + newTable + " (" + srcCol + ", staff, end_time, reason, is_auto, active) SELECT " + srcCol + ", staff, end_time, reason, is_auto, active FROM " + table);
+            execute("DROP TABLE " + table);
+            if (mysql) {
+                execute("RENAME TABLE " + newTable + " TO " + table);
+            } else {
+                execute("ALTER TABLE " + newTable + " RENAME TO " + table);
+            }
+        }
+        createIndexIfMissing(table, "idx_" + table + "_target_active", (table.equals("bans") ? "target" : "ip") + ", active");
     }
 
     public void upsertPlayerIp(String playerName, String ip, long updatedAt) {
@@ -146,20 +177,31 @@ public class DatabaseManager {
         return players;
     }
 
+    /** 新增封禁记录（先停用旧记录，再插入新行，保留历史） */
+    public void addBan(BanEntry entry) {
+        deactivateBan(entry.getTarget());
+        executeUpdate("INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)", entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive());
+    }
+
+    /** 兼容旧调用：直接写库（不再使用 upsert） */
     public void upsertBan(BanEntry entry) {
-        executeUpdate(upsertSql("bans", "target", new String[]{"target", "staff", "end_time", "reason", "is_auto"}, new String[]{"staff", "end_time", "reason", "is_auto"}), entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto());
+        addBan(entry);
+    }
+
+    public void deactivateBan(String target) {
+        executeUpdate("UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1", target);
     }
 
     public void deleteBan(String target) {
-        executeUpdate("DELETE FROM bans WHERE target = ?", target);
+        executeUpdate("DELETE FROM bans WHERE LOWER(target) = LOWER(?)", target);
     }
 
     public boolean isPlayerBanned(String target) {
-        return exists("SELECT 1 FROM bans WHERE target = ?", target);
+        return exists("SELECT 1 FROM bans WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time > ?", target, System.currentTimeMillis());
     }
 
     public BanEntry getBan(String target) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto FROM bans WHERE target = ?")) {
+        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE LOWER(target) = LOWER(?) AND active = 1 ORDER BY end_time DESC LIMIT 1")) {
             ps.setString(1, target);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? readBan(rs) : null;
@@ -172,7 +214,7 @@ public class DatabaseManager {
 
     public List<BanEntry> getBans() {
         List<BanEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto FROM bans ORDER BY target"); ResultSet rs = ps.executeQuery()) {
+        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1 ORDER BY target"); ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 entries.add(readBan(rs));
             }
@@ -184,7 +226,7 @@ public class DatabaseManager {
 
     public List<BanEntry> getBansByPlayer(String player) {
         List<BanEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto FROM bans WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
+        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
             ps.setString(1, player);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -197,8 +239,19 @@ public class DatabaseManager {
         return entries;
     }
 
+    /** 新增IP封禁记录 */
+    public void addIpBan(BanIpEntry entry) {
+        deactivateIpBan(entry.getIp());
+        executeUpdate("INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)", entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive());
+    }
+
+    /** 兼容旧调用 */
     public void upsertIpBan(BanIpEntry entry) {
-        executeUpdate(upsertSql("ip_bans", "ip", new String[]{"ip", "staff", "end_time", "reason", "is_auto"}, new String[]{"staff", "end_time", "reason", "is_auto"}), entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto());
+        addIpBan(entry);
+    }
+
+    public void deactivateIpBan(String ip) {
+        executeUpdate("UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1", ip);
     }
 
     public void deleteIpBan(String ip) {
@@ -206,11 +259,11 @@ public class DatabaseManager {
     }
 
     public boolean isIpBanned(String ip) {
-        return exists("SELECT 1 FROM ip_bans WHERE ip = ?", ip);
+        return exists("SELECT 1 FROM ip_bans WHERE ip = ? AND active = 1 AND end_time > ?", ip, System.currentTimeMillis());
     }
 
     public BanIpEntry getIpBan(String ip) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto FROM ip_bans WHERE ip = ?")) {
+        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE ip = ? AND active = 1 ORDER BY end_time DESC LIMIT 1")) {
             ps.setString(1, ip);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? readIpBan(rs) : null;
@@ -223,9 +276,24 @@ public class DatabaseManager {
 
     public List<BanIpEntry> getIpBans() {
         List<BanIpEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto FROM ip_bans ORDER BY ip"); ResultSet rs = ps.executeQuery()) {
+        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE active = 1 ORDER BY ip"); ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 entries.add(readIpBan(rs));
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    public List<BanIpEntry> getIpBansByIp(String ip) {
+        List<BanIpEntry> entries = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE ip = ? ORDER BY end_time DESC")) {
+            ps.setString(1, ip);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readIpBan(rs));
+                }
             }
         } catch (SQLException e) {
             logSql(e);
@@ -393,11 +461,25 @@ public class DatabaseManager {
     }
 
     private BanEntry readBan(ResultSet rs) throws SQLException {
-        return new BanEntry(value(rs, "target"), value(rs, "staff"), rs.getLong("end_time"), value(rs, "reason"), rs.getBoolean("is_auto"));
+        return new BanEntry(value(rs, "target"), value(rs, "staff"), rs.getLong("end_time"), value(rs, "reason"), rs.getBoolean("is_auto"), rs.getBoolean("active"));
     }
 
     private BanIpEntry readIpBan(ResultSet rs) throws SQLException {
-        return new BanIpEntry(value(rs, "ip"), value(rs, "staff"), rs.getLong("end_time"), value(rs, "reason"), rs.getBoolean("is_auto"));
+        return new BanIpEntry(value(rs, "ip"), value(rs, "staff"), rs.getLong("end_time"), value(rs, "reason"), rs.getBoolean("is_auto"), rs.getBoolean("active"));
+    }
+
+    /** 清理超过保留天数的已失效封禁记录 */
+    public void cleanupOldBans(int retentionDays) {
+        long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
+        executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
+        executeUpdate("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff);
+    }
+
+    /** 将自然过期的活跃封禁标记为 inactive */
+    public void deactivateExpiredBans() {
+        long now = System.currentTimeMillis();
+        executeUpdate("UPDATE bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now);
+        executeUpdate("UPDATE ip_bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now);
     }
 
     private MuteEntry readMute(ResultSet rs) throws SQLException {
@@ -449,9 +531,9 @@ public class DatabaseManager {
         }
     }
 
-    private boolean exists(String sql, Object value) {
+    private boolean exists(String sql, Object... values) {
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setObject(1, value);
+            setValues(ps, values);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
             }
@@ -461,9 +543,9 @@ public class DatabaseManager {
         }
     }
 
-    private int count(String sql, Object value) {
+    private int count(String sql, Object... values) {
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setObject(1, value);
+            setValues(ps, values);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
             }
@@ -545,6 +627,10 @@ public class DatabaseManager {
 
     private String booleanType() {
         return mysql ? "BOOLEAN" : "INTEGER";
+    }
+
+    private String integerPrimaryKey() {
+        return mysql ? "INT AUTO_INCREMENT PRIMARY KEY" : "INTEGER PRIMARY KEY AUTOINCREMENT";
     }
 
     private String placeholders(int count) {

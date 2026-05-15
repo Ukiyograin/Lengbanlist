@@ -74,7 +74,7 @@ public class BanManager {
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String unbanResult = currentModel.removeBan(target);
         boolean removed = isPlayerBanned(target);
-        db.deleteBan(target);
+        db.deactivateBan(target);
 
         if (removed) {
             if (unbanResult != null && !unbanResult.isEmpty()) {
@@ -94,7 +94,7 @@ public class BanManager {
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String unbanIpResult = currentModel.removeBanIp(ip);
         boolean removed = isIpBanned(ip);
-        db.deleteIpBan(ip);
+        db.deactivateIpBan(ip);
 
         if (removed) {
             if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
