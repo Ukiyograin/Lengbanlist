@@ -4,14 +4,14 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.leng.Lengbanlist;
-import org.leng.manager.ModelManager;
 import org.leng.object.MuteEntry;
+import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
-public class MuteCommand implements CommandExecutor {
+public class ListMuteCommand implements CommandExecutor {
     private final Lengbanlist plugin;
 
-    public MuteCommand(Lengbanlist plugin) {
+    public ListMuteCommand(Lengbanlist plugin) {
         this.plugin = plugin;
     }
 
@@ -21,17 +21,14 @@ public class MuteCommand implements CommandExecutor {
             plugin.sendFeatureDisabled(sender);
             return true;
         }
-        if (!sender.hasPermission("lengbanlist.mute")) {
+        if (!sender.hasPermission("lengbanlist.listmute")) {
             Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
             return true;
         }
-        if (args.length < 2) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /" + label + " <玩家名> <原因>");
-            return true;
+        Utils.sendMessage(sender, "§7--§bLengbanlist 禁言名单§7--");
+        for (MuteEntry entry : plugin.getMuteManager().getMuteList()) {
+            Utils.sendMessage(sender, "§9§o被禁言者: " + entry.getTarget() + " §6处理人: " + entry.getStaff() + " §d禁言时间: " + TimeUtils.timestampToReadable(entry.getTime()) + " §l§n禁言原因: " + entry.getReason());
         }
-        MuteEntry entry = new MuteEntry(args[0], sender.getName(), System.currentTimeMillis(), args[1]);
-        plugin.getMuteManager().mutePlayer(entry);
-        Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addMute(args[0], args[1]));
         return true;
     }
 }

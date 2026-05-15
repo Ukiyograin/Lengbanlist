@@ -5,13 +5,12 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.leng.Lengbanlist;
 import org.leng.manager.ModelManager;
-import org.leng.object.MuteEntry;
 import org.leng.utils.Utils;
 
-public class MuteCommand implements CommandExecutor {
+public class UnmuteCommand implements CommandExecutor {
     private final Lengbanlist plugin;
 
-    public MuteCommand(Lengbanlist plugin) {
+    public UnmuteCommand(Lengbanlist plugin) {
         this.plugin = plugin;
     }
 
@@ -25,13 +24,12 @@ public class MuteCommand implements CommandExecutor {
             Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
             return true;
         }
-        if (args.length < 2) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /" + label + " <玩家名> <原因>");
+        if (args.length < 1) {
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /" + label + " <玩家名>");
             return true;
         }
-        MuteEntry entry = new MuteEntry(args[0], sender.getName(), System.currentTimeMillis(), args[1]);
-        plugin.getMuteManager().mutePlayer(entry);
-        Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addMute(args[0], args[1]));
+        plugin.getMuteManager().unmutePlayer(args[0]);
+        Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().removeMute(args[0]));
         return true;
     }
 }

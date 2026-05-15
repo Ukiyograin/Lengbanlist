@@ -17,6 +17,7 @@ features:
   kick: true           # 踢出 /kick
   mute: true           # 禁言 /lban mute/unmute/list-mute
   setban: true         # 修改封禁时间 /setban
+  history: true        # 查询处罚历史 /history, /lban history
   broadcast: true      # 自动循环播报封禁人数
   chat-filter: true    # 违禁词过滤、自动禁言、可疑消息标记
   getip: true          # 查询玩家IP /lban getip

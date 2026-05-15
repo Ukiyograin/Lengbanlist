@@ -4,6 +4,8 @@ import org.bukkit.command.CommandSender;
 import org.leng.Lengbanlist;
 import org.leng.utils.Utils;
 
+import java.util.List;
+
 public class Default implements Model {
     @Override
     public String getName() {
@@ -13,38 +15,40 @@ public class Default implements Model {
 @Override
 public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§b╔══════════════════════════════════╗");
-    Utils.sendMessage(sender, "§b║ §2§oLengbanlist 帮助信息 - 默认风格 §b║");
+    Utils.sendMessage(sender, "§b║ §2§oLengbanlist 帮助 - 默认风格 §b║");
     Utils.sendMessage(sender, "§b╠══════════════════════════════════╣");
-    Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看被封禁的名单");
-    Utils.sendMessage(sender, "§2✦ §b/lban a §7- §3广播当前封禁人数");
-    Utils.sendMessage(sender, "§2✦ §b/lban toggle §7- §3开启/关闭自动广播");
-    Utils.sendMessage(sender, "§2✦ §b/lban model <模型名称> §7- §3切换模型");
-    Utils.sendMessage(sender, "§2✦ §b/lban reload §7- §3重新加载配置");
+    Utils.sendMessage(sender, "§6§l◆ 处罚管理");
     Utils.sendMessage(sender, "§2✦ §b/lban add <玩家名> <天数> <原因> §7- §3添加封禁");
     Utils.sendMessage(sender, "§7  = §b/ban");
     Utils.sendMessage(sender, "§2✦ §b/lban remove <玩家名> §7- §3移除封禁");
     Utils.sendMessage(sender, "§7  = §b/unban");
-    Utils.sendMessage(sender, "§2✦ §b/lban mute <玩家名> <原因> §7- §3禁言玩家");
-    Utils.sendMessage(sender, "§2✦ §b/lban unmute <玩家名> §7- §3解除禁言");
-    Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表");
-    Utils.sendMessage(sender, "§2✦ §b/lban help §7- §3显示帮助信息");
-    Utils.sendMessage(sender, "§2✦ §b/lban open §7- §3打开可视化操作界面");
-    Utils.sendMessage(sender, "§2✦ §b/lban getIP <玩家名> §7- §3查询玩家的 IP 地址");
     Utils.sendMessage(sender, "§2✦ §b/ban-ip <IP地址> <天数> <原因> §7- §3封禁 IP 地址");
-    Utils.sendMessage(sender, "§2✦ §b/unban-ip <IP地址> §7- §3解除 IP 封禁");
-    Utils.sendMessage(sender, "§2✦ §b/lban warn <玩家名> <原因> §7- §3警告玩家，三次警告将自动封禁！");
+    Utils.sendMessage(sender, "§2✦ §b/lban mute <玩家名> <原因> §7- §3禁言玩家");
+    Utils.sendMessage(sender, "§7  = §b/mute");
+    Utils.sendMessage(sender, "§2✦ §b/lban unmute <玩家名> §7- §3解除禁言");
+    Utils.sendMessage(sender, "§7  = §b/unmute");
+    Utils.sendMessage(sender, "§2✦ §b/lban warn <玩家名> <原因> §7- §3警告玩家，三次警告将自动封禁");
     Utils.sendMessage(sender, "§7  = §b/warn");
-    Utils.sendMessage(sender, "§7-> §2§l/unwarn <玩家名> <警告ID或UUID> §7- §3移除特定警告");
-    Utils.sendMessage(sender, "§7-> §2§l/unwarn <玩家名> §7- §3移除所有警告");
-    Utils.sendMessage(sender, "§2✦ §b/lban unwarn <玩家名> §7- §3移除玩家的警告记录。");
+    Utils.sendMessage(sender, "§2✦ §b/lban unwarn <玩家名> §7- §3移除玩家警告");
     Utils.sendMessage(sender, "§7  = §b/unwarn");
-    Utils.sendMessage(sender, "§2✦ §b/lban check <玩家名/IP> §7- §3检查玩家或IP的封禁状态");
-    Utils.sendMessage(sender, "§2✦ §b/report <玩家名> <原因> §7- §3举报玩家，维护服务器秩序。");
-    Utils.sendMessage(sender, "§7-> §2§l/report accept <举报编号> §7- §3受理举报，开始处理。");
-    Utils.sendMessage(sender, "§7-> §2§l/report close <举报编号> §7- §3关闭举报，问题已解决。");
-    Utils.sendMessage(sender, "§2✦ §b/kick <玩家名> <原因> §7- §3踢出不守规矩的玩家！");
-    Utils.sendMessage(sender, "§2✦ §b/lban info §7- §3查看插件信息，了解当前运行状态");
-    Utils.sendMessage(sender, "§2✦ §b/setban <玩家名/IP> <时间/forever/auto> <原因> §7- §3重新设置封禁时间，维护秩序，不容破坏！");
+    Utils.sendMessage(sender, "§2✦ §b/kick <玩家名> <原因> §7- §3踢出玩家");
+    Utils.sendMessage(sender, "§2✦ §b/setban <玩家名/IP> <时间/forever/auto> <原因> §7- §3修改封禁时间");
+    Utils.sendMessage(sender, "§6§l◆ 查询信息");
+    Utils.sendMessage(sender, "§2✦ §b/lban check <玩家名/IP> §7- §3检查封禁状态");
+    Utils.sendMessage(sender, "§2✦ §b/lban history <玩家名> §7- §3查询处罚历史");
+    Utils.sendMessage(sender, "§7  = §b/history");
+    Utils.sendMessage(sender, "§2✦ §b/report <玩家名> <原因> §7- §3举报玩家");
+    Utils.sendMessage(sender, "§2✦ §b/lban getip <玩家名> §7- §3查询玩家 IP 地址");
+    Utils.sendMessage(sender, "§6§l◆ 杂项");
+    Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看封禁名单");
+    Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表");
+    Utils.sendMessage(sender, "§7  = §b/listmute");
+    Utils.sendMessage(sender, "§2✦ §b/lban a §7- §3广播封禁人数");
+    Utils.sendMessage(sender, "§2✦ §b/lban toggle §7- §3开关自动广播");
+    Utils.sendMessage(sender, "§2✦ §b/lban open §7- §3打开可视化操作界面");
+    Utils.sendMessage(sender, "§2✦ §b/lban model <模型名称> §7- §3切换模型");
+    Utils.sendMessage(sender, "§2✦ §b/lban reload §7- §3重新加载配置");
+    Utils.sendMessage(sender, "§2✦ §b/lban info §7- §3查看插件信息");
     Utils.sendMessage(sender, "§b╚══════════════════════════════════╝");
     Utils.sendMessage(sender, "§2♡ 当前版本: " + Lengbanlist.getInstance().getPluginVersion() + " §7| §b模型: 默认 Default");
 }
@@ -115,5 +119,18 @@ public void showHelp(CommandSender sender) {
     @Override
     public String removeWarn(String player) {
         return "§b默认模型：§a玩家 " + player + " 的警告记录已移除。";
+    }
+
+    @Override
+    public String getHistory(String player, List<String> entries) {
+        if (entries.isEmpty()) {
+            return "§b默认模型：§a玩家 " + player + " 没有任何处罚记录，是个遵纪守法的好玩家！";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("§b默认模型：§a玩家 ").append(player).append(" 的处罚历史：\n");
+        for (String entry : entries) {
+            sb.append(entry).append("\n");
+        }
+        return sb.toString().trim();
     }
 }

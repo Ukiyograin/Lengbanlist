@@ -167,6 +167,10 @@ public void onEnable() {
     getCommand("allowmsg").setExecutor(new AllowMsgCommand(Lengbanlist.this));
     getCommand("warnmsg").setExecutor(new WarnMsgCommand(Lengbanlist.this));
     getCommand("setban").setExecutor(new SetBanCommand(Lengbanlist.this));
+    getCommand("history").setExecutor(new HistoryCommand(Lengbanlist.this));
+    getCommand("mute").setExecutor(new MuteCommand(Lengbanlist.this));
+    getCommand("unmute").setExecutor(new UnmuteCommand(Lengbanlist.this));
+    getCommand("listmute").setExecutor(new ListMuteCommand(Lengbanlist.this));
 
     getServer().getConsoleSender().sendMessage("§b  _                      ____              _      _     _   ");
     getServer().getConsoleSender().sendMessage("§6 | |                    |  _ \\            | |    (_)   | |  ");
@@ -270,7 +274,8 @@ private void unregisterCommands() {
         CommandMap commandMap = getCommandMap();
         if (commandMap != null) {
             String[] commands = {"lban", "ban", "ban-ip", "unban", "warn", "unwarn", "check",
-                               "report", "admin", "kick", "info", "allowmsg", "warnmsg", "setban"};
+                               "report", "admin", "kick", "info", "allowmsg", "warnmsg", "setban", "history",
+                               "mute", "unmute", "listmute"};
 
             for (String commandName : commands) {
                 org.bukkit.command.Command command = commandMap.getCommand(commandName);

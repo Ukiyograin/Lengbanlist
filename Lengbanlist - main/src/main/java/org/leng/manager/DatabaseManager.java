@@ -182,6 +182,21 @@ public class DatabaseManager {
         return entries;
     }
 
+    public List<BanEntry> getBansByPlayer(String player) {
+        List<BanEntry> entries = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto FROM bans WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
+            ps.setString(1, player);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readBan(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
     public void upsertIpBan(BanIpEntry entry) {
         executeUpdate(upsertSql("ip_bans", "ip", new String[]{"ip", "staff", "end_time", "reason", "is_auto"}, new String[]{"staff", "end_time", "reason", "is_auto"}), entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto());
     }
@@ -243,6 +258,21 @@ public class DatabaseManager {
         try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes ORDER BY target"); ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 entries.add(readMute(rs));
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    public List<MuteEntry> getMutesByPlayer(String player) {
+        List<MuteEntry> entries = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
+            ps.setString(1, player);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readMute(rs));
+                }
             }
         } catch (SQLException e) {
             logSql(e);

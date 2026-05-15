@@ -434,6 +434,21 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 return new InfoCommand(plugin).onCommand(sender, null, "info", new String[0]);
+            case "history":
+                if (!plugin.isFeatureEnabled("history")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.history")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (args.length < 2) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c用法: /lban history <玩家名>");
+                    return true;
+                }
+                String[] histArgs = Arrays.copyOfRange(args, 1, args.length);
+                return new HistoryCommand(plugin).onCommand(sender, this, "history", histArgs);
 
         }
         return true;
@@ -451,7 +466,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
             String prefix = args[0].toLowerCase();
             String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
                     "getip", "model", "mute", "unmute", "list-mute", "warn", "unwarn",
-                    "report", "admin", "check", "info", "tp"};
+                    "report", "admin", "check", "info", "tp", "history"};
             for (String s : subs) {
                 if (s.startsWith(prefix)) completions.add(s);
             }
@@ -465,6 +480,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 case "check":
                 case "getip":
                 case "tp":
+                case "history":
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
                     }

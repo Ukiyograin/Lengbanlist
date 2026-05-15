@@ -4,6 +4,8 @@ import org.bukkit.command.CommandSender;
 import org.leng.Lengbanlist;
 import org.leng.utils.Utils;
 
+import java.util.List;
+
 public class English implements Model {
     @Override
     public String getName() {
@@ -13,38 +15,40 @@ public class English implements Model {
     @Override
     public void showHelp(CommandSender sender) {
         Utils.sendMessage(sender, "§b╔══════════════════════════════════════╗");
-        Utils.sendMessage(sender, "§b║ §2§oLengbanlist Help - English Style §b║");
+        Utils.sendMessage(sender, "§b║ §2§oLengbanlist Help - English §b║");
         Utils.sendMessage(sender, "§b╠══════════════════════════════════════╣");
-        Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3View banned players list");
-        Utils.sendMessage(sender, "§2✦ §b/lban a §7- §3Broadcast current ban count");
-        Utils.sendMessage(sender, "§2✦ §b/lban toggle §7- §3Toggle automatic broadcast");
-        Utils.sendMessage(sender, "§2✦ §b/lban model <model name> §7- §3Switch model");
-        Utils.sendMessage(sender, "§2✦ §b/lban reload §7- §3Reload configuration");
-        Utils.sendMessage(sender, "§2✦ §b/lban add <player> <time/auto> <reason> §7- §3Add a ban");
+        Utils.sendMessage(sender, "§6§l◆ Punishments");
+        Utils.sendMessage(sender, "§2✦ §b/lban add <player> <days> <reason> §7- §3Ban a player");
         Utils.sendMessage(sender, "§7  = §b/ban");
-        Utils.sendMessage(sender, "§2✦ §b/lban remove <player> §7- §3Remove a ban");
+        Utils.sendMessage(sender, "§2✦ §b/lban remove <player> §7- §3Unban a player");
         Utils.sendMessage(sender, "§7  = §b/unban");
+        Utils.sendMessage(sender, "§2✦ §b/ban-ip <IP> <days> <reason> §7- §3Ban an IP address");
         Utils.sendMessage(sender, "§2✦ §b/lban mute <player> <reason> §7- §3Mute a player");
+        Utils.sendMessage(sender, "§7  = §b/mute");
         Utils.sendMessage(sender, "§2✦ §b/lban unmute <player> §7- §3Unmute a player");
-        Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3View muted players list");
-        Utils.sendMessage(sender, "§2✦ §b/lban help §7- §3Show help information");
-        Utils.sendMessage(sender, "§2✦ §b/lban open §7- §3Open visual operation interface");
-        Utils.sendMessage(sender, "§2✦ §b/lban getIP <player> §7- §3Query player's IP address");
-        Utils.sendMessage(sender, "§2✦ §b/ban-ip <IP address> <time/auto> <reason> §7- §3Ban IP address");
-        Utils.sendMessage(sender, "§2✦ §b/unban-ip <IP address> §7- §3Unban IP address");
-        Utils.sendMessage(sender, "§2✦ §b/lban warn <player> <reason> §7- §3Warn player, 3 warnings will auto-ban!");
+        Utils.sendMessage(sender, "§7  = §b/unmute");
+        Utils.sendMessage(sender, "§2✦ §b/lban warn <player> <reason> §7- §3Warn a player, 3 = auto-ban");
         Utils.sendMessage(sender, "§7  = §b/warn");
-        Utils.sendMessage(sender, "§7-> §2§l/unwarn <player> <warning ID or UUID> §7- §3Remove specific warning");
-        Utils.sendMessage(sender, "§7-> §2§l/unwarn <player> §7- §3Remove all warnings");
-        Utils.sendMessage(sender, "§2✦ §b/lban unwarn <player> §7- §3Remove player's warning records");
+        Utils.sendMessage(sender, "§2✦ §b/lban unwarn <player> §7- §3Remove player warnings");
         Utils.sendMessage(sender, "§7  = §b/unwarn");
-        Utils.sendMessage(sender, "§2✦ §b/lban check <player/IP> §7- §3Check ban status of player or IP");
-        Utils.sendMessage(sender, "§2✦ §b/report <player> <reason> §7- §3Report player, maintain server order");
-        Utils.sendMessage(sender, "§7-> §2§l/report accept <report ID> §7- §3Accept report, start processing");
-        Utils.sendMessage(sender, "§7-> §2§l/report close <report ID> §7- §3Close report, issue resolved");
-        Utils.sendMessage(sender, "§2✦ §b/kick <player> <reason> §7- §3Kick unruly players!");
-        Utils.sendMessage(sender, "§2✦ §b/lban info §7- §3View plugin information and current status");
-        Utils.sendMessage(sender, "§2✦ §b/setban <player/IP> <time/forever/auto> <reason> §7- §3Reset ban time, maintain order!");
+        Utils.sendMessage(sender, "§2✦ §b/kick <player> <reason> §7- §3Kick a player");
+        Utils.sendMessage(sender, "§2✦ §b/setban <player/IP> <time/forever/auto> <reason> §7- §3Modify ban time");
+        Utils.sendMessage(sender, "§6§l◆ Information");
+        Utils.sendMessage(sender, "§2✦ §b/lban check <player/IP> §7- §3Check ban status");
+        Utils.sendMessage(sender, "§2✦ §b/lban history <player> §7- §3Query punishment history");
+        Utils.sendMessage(sender, "§7  = §b/history");
+        Utils.sendMessage(sender, "§2✦ §b/report <player> <reason> §7- §3Report a player");
+        Utils.sendMessage(sender, "§2✦ §b/lban getip <player> §7- §3Query player IP address");
+        Utils.sendMessage(sender, "§6§l◆ Miscellaneous");
+        Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3View ban list");
+        Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3View mute list");
+        Utils.sendMessage(sender, "§7  = §b/listmute");
+        Utils.sendMessage(sender, "§2✦ §b/lban a §7- §3Broadcast ban count");
+        Utils.sendMessage(sender, "§2✦ §b/lban toggle §7- §3Toggle auto broadcast");
+        Utils.sendMessage(sender, "§2✦ §b/lban open §7- §3Open visual operation UI");
+        Utils.sendMessage(sender, "§2✦ §b/lban model <model> §7- §3Switch model");
+        Utils.sendMessage(sender, "§2✦ §b/lban reload §7- §3Reload configuration");
+        Utils.sendMessage(sender, "§2✦ §b/lban info §7- §3View plugin info");
         Utils.sendMessage(sender, "§b╚══════════════════════════════════════╝");
         Utils.sendMessage(sender, "§2♡ Current Version: " + Lengbanlist.getInstance().getPluginVersion() + " §7| §bModel: English");
     }
@@ -117,5 +121,18 @@ public class English implements Model {
     @Override
     public String removeWarn(String player) {
         return "§bEnglish Model: §aWarning records for " + player + " have been removed.";
+    }
+
+    @Override
+    public String getHistory(String player, List<String> entries) {
+        if (entries.isEmpty()) {
+            return "§bEnglish Model: §aPlayer " + player + " has a clean record. Good job!";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("§bEnglish Model: §aPunishment history for ").append(player).append(":\n");
+        for (String entry : entries) {
+            sb.append(entry).append("\n");
+        }
+        return sb.toString().trim();
     }
 }

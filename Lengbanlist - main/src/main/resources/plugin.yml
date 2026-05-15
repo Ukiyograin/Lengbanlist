@@ -1,6 +1,6 @@
 name: Lengbanlist
 main: org.leng.Lengbanlist
-version: 1.8.4
+version: 1.8.5
 api-version: 1.21
 folia-supported: true
 authors: 
@@ -66,6 +66,22 @@ commands:
     description: 设置玩家的封禁时间
     usage: /<command> <玩家名/IP> <时间/forever/auto> <理由>
     permission: lengbanlist.setban
+  history:
+    description: 查询玩家的处罚历史
+    usage: /<command> <玩家名>
+    permission: lengbanlist.history
+  mute:
+    description: 禁言玩家
+    usage: /<command> <玩家名> <原因>
+    permission: lengbanlist.mute
+  unmute:
+    description: 解除禁言
+    usage: /<command> <玩家名>
+    permission: lengbanlist.mute
+  listmute:
+    description: 查看禁言列表
+    usage: /<command>
+    permission: lengbanlist.listmute
 permissions:
   lengbanlist.ban:
     description: 允许使用封禁玩家命令
@@ -108,4 +124,7 @@ permissions:
     default: op
   lengbanlist.setban:
     description: 允许使用设置封禁时间命令
+    default: op
+  lengbanlist.history:
+    description: 允许使用查询处罚历史命令
     default: op
