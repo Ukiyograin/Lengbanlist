@@ -73,15 +73,12 @@
 # 7. 若插件无法加载，请删除 plugins/Lengbanlist 文件夹后重启服务器。
 # 7. If the plugin fails to load, delete the plugins/Lengbanlist folder and restart the server.
 
-# 8. 数据库管理功能仍在开发中，更新可能较慢，敬请耐心等待。
-# 8. Database management features are under development. Updates may be slow; thank you for your patience.
-
 # ================================================
 # 五、开发者信息 / Developer Information
 # ------------------------------------------------
-# 作者：Ukiyograin (LengMC)
+# 作者：Ukiyograin
 
-# 最后更新：2026年5月13日
+# 最后更新：2026年5月15日
 
 
 # ================================================

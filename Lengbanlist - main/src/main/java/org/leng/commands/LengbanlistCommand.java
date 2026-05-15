@@ -14,8 +14,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Material;
 import org.bukkit.Sound;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
@@ -23,6 +21,7 @@ import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
 import org.leng.manager.ModelManager;
 import org.leng.models.Model;
+import org.leng.utils.SchedulerUtils;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 import org.leng.utils.SaveIP;
@@ -222,12 +221,16 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 if (ip == null) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c§l查询不到玩家 " + target + " 的 IP 地址");
                 } else {
-                    String location = getIPLocation(ip);
-                    if (location != null) {
-                        Utils.sendMessage(sender, plugin.prefix() + "§a查询到玩家 " + target + " 的 IP 地址为 " + ip + "，地理位置：" + location);
-                    } else {
-                        Utils.sendMessage(sender, plugin.prefix() + "§a查询到玩家 " + target + " 的 IP 地址为 " + ip + "，但无法解析地理位置");
-                    }
+                    SchedulerUtils.runAsync(plugin, () -> {
+                        String location = getIPLocation(ip);
+                        SchedulerUtils.runTask(plugin, () -> {
+                            if (location != null) {
+                                Utils.sendMessage(sender, plugin.prefix() + "§a查询到玩家 " + target + " 的 IP 地址为 " + ip + "，地理位置：" + location);
+                            } else {
+                                Utils.sendMessage(sender, plugin.prefix() + "§a查询到玩家 " + target + " 的 IP 地址为 " + ip + "，但无法解析地理位置");
+                            }
+                        });
+                    });
                 }
                 break;
             case "model":
@@ -645,7 +648,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         item.setItemMeta(meta);
 
         if (sound != null && player != null) {
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            SchedulerUtils.runTaskLater(plugin, () -> {
                 player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
             }, 1L);
         }

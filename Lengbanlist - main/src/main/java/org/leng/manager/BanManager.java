@@ -10,12 +10,21 @@ import org.leng.utils.TimeUtils;
 
 import java.util.List;
 
+/** 封禁管理，统一处理玩家封禁、IP 封禁、解封、加入检查。通过 plugin 引用获取数据库和模型管理器。 */
 public class BanManager {
+    private final Lengbanlist plugin;
+    private final DatabaseManager db;
+
+    public BanManager(Lengbanlist plugin) {
+        this.plugin = plugin;
+        this.db = plugin.getDatabaseManager();
+    }
+
     public void banPlayer(BanEntry banEntry) {
         long durationMillis = banEntry.getEndTime() - System.currentTimeMillis();
-        int durationDays = (int) Math.max(1, durationMillis / (1000 * 60 * 60 * 24));
+        int durationDays = (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
-        Model currentModel = Lengbanlist.getInstance().getModelManager().getCurrentModel();
+        Model currentModel = plugin.getModelManager().getCurrentModel();
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
         updateBan(banEntry);
 
@@ -38,16 +47,16 @@ public class BanManager {
         } else {
             String defaultMessage = String.format("§c玩家 %s 已被封禁！原因：%s，时长：%s", banEntry.getTarget(), banEntry.getReason(), TimeUtils.formatDuration(durationMillis));
             Bukkit.broadcastMessage(defaultMessage);
-            String modelName = Lengbanlist.getInstance().getModelManager().getCurrentModelName();
+            String modelName = plugin.getModelManager().getCurrentModelName();
             Bukkit.getLogger().warning("模型 [" + modelName + "] 封禁玩家 [" + banEntry.getTarget() + "] 时未返回消息，使用默认消息");
         }
     }
 
     public void banIp(BanIpEntry banIpEntry) {
         long durationMillis = banIpEntry.getEndTime() - System.currentTimeMillis();
-        int durationDays = (int) Math.max(1, durationMillis / (1000 * 60 * 60 * 24));
+        int durationDays = (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
-        Model currentModel = Lengbanlist.getInstance().getModelManager().getCurrentModel();
+        Model currentModel = plugin.getModelManager().getCurrentModel();
         String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), durationDays, banIpEntry.getReason());
         updateIpBan(banIpEntry);
 
@@ -56,65 +65,65 @@ public class BanManager {
         } else {
             String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", banIpEntry.getIp(), banIpEntry.getReason(), TimeUtils.formatDuration(durationMillis));
             Bukkit.broadcastMessage(defaultMessage);
-            String modelName = Lengbanlist.getInstance().getModelManager().getCurrentModelName();
+            String modelName = plugin.getModelManager().getCurrentModelName();
             Bukkit.getLogger().warning("模型 [" + modelName + "] 封禁 IP [" + banIpEntry.getIp() + "] 时未返回消息，使用默认消息");
         }
     }
 
     public void unbanPlayer(String target) {
-        Model currentModel = Lengbanlist.getInstance().getModelManager().getCurrentModel();
+        Model currentModel = plugin.getModelManager().getCurrentModel();
         String unbanResult = currentModel.removeBan(target);
         boolean removed = isPlayerBanned(target);
-        getDatabaseManager().deleteBan(target);
+        db.deleteBan(target);
 
         if (removed) {
             if (unbanResult != null && !unbanResult.isEmpty()) {
                 Bukkit.broadcastMessage(unbanResult);
             } else {
                 Bukkit.broadcastMessage(String.format("§a玩家 %s 已被解封", target));
-                String modelName = Lengbanlist.getInstance().getModelManager().getCurrentModelName();
+                String modelName = plugin.getModelManager().getCurrentModelName();
                 Bukkit.getLogger().warning("模型 [" + modelName + "] 解封玩家 [" + target + "] 时未返回消息，使用默认消息");
             }
         } else {
-            String modelName = Lengbanlist.getInstance().getModelManager().getCurrentModelName();
+            String modelName = plugin.getModelManager().getCurrentModelName();
             Bukkit.getLogger().warning("通过模型 [" + modelName + "] 解封玩家 [" + target + "] 失败：玩家不在封禁列表中");
         }
     }
 
     public void unbanIp(String ip) {
-        Model currentModel = Lengbanlist.getInstance().getModelManager().getCurrentModel();
+        Model currentModel = plugin.getModelManager().getCurrentModel();
         String unbanIpResult = currentModel.removeBanIp(ip);
         boolean removed = isIpBanned(ip);
-        getDatabaseManager().deleteIpBan(ip);
+        db.deleteIpBan(ip);
 
         if (removed) {
             if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
                 Bukkit.broadcastMessage(unbanIpResult);
             } else {
                 Bukkit.broadcastMessage(String.format("§aIP %s 已被解封", ip));
-                String modelName = Lengbanlist.getInstance().getModelManager().getCurrentModelName();
+                String modelName = plugin.getModelManager().getCurrentModelName();
                 Bukkit.getLogger().warning("模型 [" + modelName + "] 解封 IP [" + ip + "] 时未返回消息，使用默认消息");
             }
         } else {
-            String modelName = Lengbanlist.getInstance().getModelManager().getCurrentModelName();
+            String modelName = plugin.getModelManager().getCurrentModelName();
             Bukkit.getLogger().warning("通过模型 [" + modelName + "] 解封 IP [" + ip + "] 失败：IP不在封禁列表中");
         }
     }
 
     public boolean isPlayerBanned(String target) {
-        return getDatabaseManager().isPlayerBanned(target);
+        return db.isPlayerBanned(target);
     }
 
     public boolean isIpBanned(String ip) {
-        return getDatabaseManager().isIpBanned(ip);
+        return db.isIpBanned(ip);
     }
 
     public List<BanEntry> getBanList() {
-        return getDatabaseManager().getBans();
+        return db.getBans();
     }
 
     public List<BanIpEntry> getBanIpList() {
-        return getDatabaseManager().getIpBans();
+        return db.getIpBans();
     }
 
     public void checkBanOnJoin(Player player) {
@@ -141,35 +150,29 @@ public class BanManager {
     }
 
     public BanEntry getBanEntry(String target) {
-        return getDatabaseManager().getBan(target);
+        return db.getBan(target);
     }
 
     public BanIpEntry getBanIpEntry(String ip) {
-        return getDatabaseManager().getIpBan(ip);
+        return db.getIpBan(ip);
     }
 
     public void updateBan(BanEntry entry) {
-        getDatabaseManager().upsertBan(entry);
+        db.upsertBan(entry);
     }
 
     public void updateIpBan(BanIpEntry entry) {
-        getDatabaseManager().upsertIpBan(entry);
+        db.upsertIpBan(entry);
     }
 
     public boolean isValidIp(String ip) {
-        if (ip == null || ip.isEmpty()) {
-            return false;
-        }
+        if (ip == null || ip.isEmpty()) return false;
         String[] parts = ip.split("\\.");
-        if (parts.length != 4) {
-            return ip.contains(":");
-        }
+        if (parts.length != 4) return ip.contains(":");
         for (String part : parts) {
             try {
                 int num = Integer.parseInt(part);
-                if (num < 0 || num > 255) {
-                    return false;
-                }
+                if (num < 0 || num > 255) return false;
             } catch (NumberFormatException e) {
                 return false;
             }
@@ -182,13 +185,6 @@ public class BanManager {
         return banEntry != null && banEntry.getReason().contains(reason);
     }
 
-    public void saveBanList() {
-    }
-
-    public void saveBanIpConfig() {
-    }
-
-    private DatabaseManager getDatabaseManager() {
-        return Lengbanlist.getInstance().getDatabaseManager();
-    }
+    public void saveBanList() {}
+    public void saveBanIpConfig() {}
 }

@@ -12,14 +12,11 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 import org.leng.Lengbanlist;
-import org.leng.manager.BanManager;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
-
-import java.util.List;
 
 public class AnvilGUIListener implements Listener {
     private final Lengbanlist plugin;

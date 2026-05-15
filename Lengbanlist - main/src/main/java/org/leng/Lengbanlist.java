@@ -6,12 +6,12 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.command.CommandMap;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.leng.commands.*;
 import org.leng.listeners.*;
 import org.leng.manager.*;
 import org.leng.utils.GitHubUpdateChecker;
 import org.leng.utils.AutoUpdateManager;
+import org.leng.utils.SchedulerUtils;
 import org.leng.utils.Utils;
 
 import java.io.File;
@@ -28,38 +28,26 @@ public class Lengbanlist extends JavaPlugin {
     public MuteManager muteManager;
     public WarnManager warnManager;
     public ReportManager reportManager;
-    public BukkitTask task;
+    public SchedulerUtils.SchedulerTask broadcastTask;
     private boolean isBroadcast;
-    public FileConfiguration ipFC;
-    private FileConfiguration banFC;
-    private FileConfiguration banIpFC;
-    private FileConfiguration muteFC;
     private FileConfiguration broadcastFC;
-    private FileConfiguration warnFC;
-    private FileConfiguration reportFC; 
     private FileConfiguration chatConfig;
     private ModelChoiceListener modelChoiceListener;
     private String hitokoto;
     private ModelManager modelManager;
     private DatabaseManager databaseManager;
     private FileConfiguration eulaFC;
-    
-    private boolean isFolia = false;
+
     private boolean eulaAgreed = false;
     private boolean initializationFailed = false;
 
 @Override
 public void onLoad() {
-    try {
-        Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
-        isFolia = true;
-    } catch (ClassNotFoundException e) {
-        isFolia = false;
-    }
-    
     saveDefaultConfig();
     instance = this;
-    
+
+    SchedulerUtils.init(this);
+
     File eulaFile = new File(getDataFolder(), "eula.yml");
     if (!eulaFile.exists()) {
         eulaFile.getParentFile().mkdirs();
@@ -67,7 +55,7 @@ public void onLoad() {
         eulaAgreed = false;
         return;
     }
-    
+
     eulaFC = YamlConfiguration.loadConfiguration(eulaFile);
     Object agreementValue = eulaFC.get("I have read and agree to the above terms");
     String agreement = agreementValue == null ? "no" : String.valueOf(agreementValue).trim();
@@ -76,8 +64,7 @@ public void onLoad() {
     if (!eulaAgreed) {
         return;
     }
-    
-    // EULA 同意后才初始化
+
     databaseManager = new DatabaseManager(this);
     try {
         databaseManager.initialize();
@@ -89,9 +76,9 @@ public void onLoad() {
         return;
     }
 
-    banManager = new BanManager();
-    muteManager = new MuteManager();
-    warnManager = new WarnManager();
+    banManager = new BanManager(this);
+    muteManager = new MuteManager(this);
+    warnManager = new WarnManager(this);
     reportManager = new ReportManager(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
     modelManager = ModelManager.getInstance();
@@ -102,29 +89,28 @@ public void onLoad() {
         saveResource("chatconfig.yml", false);
     }
     chatConfig = YamlConfiguration.loadConfiguration(chatConfigFile);
-    
-    hitokoto = getHitokoto();
 
-    File broadcastFile = new File(getDataFolder(), "broadcast.yml"); 
+    File broadcastFile = new File(getDataFolder(), "broadcast.yml");
     if (!broadcastFile.exists()) {
         broadcastFile.getParentFile().mkdirs();
-        try { 
-            broadcastFile.createNewFile(); 
-        } catch (IOException e) { 
-            e.printStackTrace(); 
+        try {
+            broadcastFile.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
     broadcastFC = YamlConfiguration.loadConfiguration(broadcastFile);
 
     if (!broadcastFC.contains("default-message")) {
-        broadcastFC.set("default-message", "§b当前封禁人数：%s 人，封禁IP数：%i 人，总计：%t 人");
+        broadcastFC.set("default-message", "§f[§b§oServer §f§oNetwork§f] §6当前§c已封禁 §f%t §c人 §b(§f%s §c个ID §c已封禁 §f%i §c个IP §b)§4§n禁止私自盗取物品，破坏机器，损坏建筑！§f如遭遇此类事件，请进群处理：§bxxxxxxx");
         try {
             broadcastFC.save(broadcastFile);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-} 
+
+}
 
 @Override
 public void onEnable() {
@@ -149,20 +135,24 @@ public void onEnable() {
         return;
     }
 
+    SchedulerUtils.runAsync(this, () -> {
+        hitokoto = getHitokoto();
+    });
+
     getServer().getConsoleSender().sendMessage(prefix() + "§f原神§2正在加载");
-    getServer().getConsoleSender().sendMessage(prefix() + ModelManager.getInstance().getCurrentModelName() + "§6偷偷告诉你: §e" + hitokoto);
+    if (hitokoto != null) {
+        getServer().getConsoleSender().sendMessage(prefix() + ModelManager.getInstance().getCurrentModelName() + "§6偷偷告诉你: §e" + hitokoto);
+    }
     getServer().getConsoleSender().sendMessage(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName());
 
-    // 注册事件监听器
     getServer().getPluginManager().registerEvents(new PlayerJoinListener(Lengbanlist.this), Lengbanlist.this);
-    getServer().getPluginManager().registerEvents(new ChatListener(Lengbanlist.this), Lengbanlist.this); 
+    getServer().getPluginManager().registerEvents(new ChatListener(Lengbanlist.this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new OpJoinListener(Lengbanlist.this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new ChestUIListener(Lengbanlist.this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new AnvilGUIListener(Lengbanlist.this), Lengbanlist.this);
     modelChoiceListener = new ModelChoiceListener(Lengbanlist.this);
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
 
-    // 注册命令
     getCommand("lban").setExecutor(new LengbanlistCommand("lban", Lengbanlist.this));
     getCommand("ban").setExecutor(new BanCommand(Lengbanlist.this));
     getCommand("ban-ip").setExecutor(new BanIpCommand(Lengbanlist.this));
@@ -170,12 +160,12 @@ public void onEnable() {
     getCommand("warn").setExecutor(new WarnCommand(Lengbanlist.this));
     getCommand("unwarn").setExecutor(new UnwarnCommand(Lengbanlist.this));
     getCommand("check").setExecutor(new CheckCommand(Lengbanlist.this));
-    getCommand("report").setExecutor(new ReportCommand(Lengbanlist.this)); 
+    getCommand("report").setExecutor(new ReportCommand(Lengbanlist.this));
     getCommand("admin").setExecutor(new AdminReportCommand(Lengbanlist.this));
     getCommand("kick").setExecutor(new KickCommand(Lengbanlist.this));
     getCommand("info").setExecutor(new InfoCommand(Lengbanlist.this));
-    getCommand("allowmsg").setExecutor(new AllowMsgCommand(Lengbanlist.this)); 
-    getCommand("warnmsg").setExecutor(new WarnMsgCommand(Lengbanlist.this)); 
+    getCommand("allowmsg").setExecutor(new AllowMsgCommand(Lengbanlist.this));
+    getCommand("warnmsg").setExecutor(new WarnMsgCommand(Lengbanlist.this));
     getCommand("setban").setExecutor(new SetBanCommand(Lengbanlist.this));
 
     getServer().getConsoleSender().sendMessage("§b  _                      ____              _      _     _   ");
@@ -190,29 +180,12 @@ public void onEnable() {
     getServer().getConsoleSender().sendMessage("§3当前运行在：" + Bukkit.getServer().getVersion());
 
     new Metrics(Lengbanlist.this, 24495);
-    
-    // 先检查是否需要更新
-    if (isFeatureEnabled("auto-update")) {
+
+    if (getConfig().getBoolean("features.auto-update", false)) {
         getLogger().info("§a自动更新功能已启用，正在检查更新...");
-        // 延迟5秒执行自动更新，让服务器完全启动
-        runAsync(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(5000); // 等待5秒
-                    checkUpdate();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        });
-    } else if (isFeatureEnabled("update-check")) {
-        runAsync(new Runnable() {
-            @Override
-            public void run() {
-                GitHubUpdateChecker.checkUpdate();
-            }
-        });
+        SchedulerUtils.runAsyncDelayed(this, this::checkUpdate, 5000);
+    } else if (getConfig().getBoolean("features.update-check", false)) {
+        SchedulerUtils.runAsync(this, GitHubUpdateChecker::checkUpdate);
     }
 
     if (isFeatureEnabled("broadcast") && isBroadcast) {
@@ -224,7 +197,7 @@ public void onEnable() {
 public void onDisable() {
     getServer().getConsoleSender().sendMessage(prefix() + "§k§4正在卸载");
 
-    if (task != null) task.cancel();
+    if (broadcastTask != null) broadcastTask.cancel();
 
     if (eulaAgreed) {
         try {
@@ -241,36 +214,8 @@ public void onDisable() {
     private void startBroadcastTask() {
         long interval = getConfig().getInt("sendtime") * 1200L;
         long delay = 200L;
-        
-        if (isFolia) {
-            try {
-                Class<?> globalRegionSchedulerClass = Class.forName("io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
-                java.lang.reflect.Method getGlobalRegionSchedulerMethod = Bukkit.class.getMethod("getGlobalRegionScheduler");
-                Object globalScheduler = getGlobalRegionSchedulerMethod.invoke(null);
-                
-                java.lang.reflect.Method runAtFixedRateMethod = globalScheduler.getClass().getMethod("runAtFixedRate", 
-                    JavaPlugin.class, java.util.function.Consumer.class, long.class, long.class);
-                
-                Runnable broadcastTask = new Runnable() {
-                    @Override
-                    public void run() {
-                        if (Lengbanlist.this.isEnabled()) {
-                            new BroadCastBanCountMessage().run();
-                        }
-                    }
-                };
-                
-                java.util.function.Consumer<Object> taskConsumer = t -> broadcastTask.run();
-                runAtFixedRateMethod.invoke(globalScheduler, this, taskConsumer, delay, interval);
-                
-            } catch (Exception e) {
-                if (!isFolia) {
-                    task = new BroadCastBanCountMessage().runTaskTimer(this, delay, interval);
-                }
-            }
-        } else {
-            task = new BroadCastBanCountMessage().runTaskTimer(this, delay, interval);
-        }
+        broadcastTask = SchedulerUtils.runTaskTimer(this,
+                new BroadCastBanCountMessage(), delay, interval);
     }
 
     public String prefix() {
@@ -308,14 +253,14 @@ public void onDisable() {
     public void setBroadcastEnabled(boolean broadcastEnabled) {
         this.isBroadcast = broadcastEnabled;
         if (!isFeatureEnabled("broadcast")) {
-            if (task != null) task.cancel();
+            if (broadcastTask != null) broadcastTask.cancel();
             return;
         }
         if (isBroadcast) {
             startBroadcastTask();
         } else {
-            if (task != null) {
-                task.cancel();
+            if (broadcastTask != null) {
+                broadcastTask.cancel();
             }
         }
     }
@@ -324,9 +269,9 @@ private void unregisterCommands() {
     try {
         CommandMap commandMap = getCommandMap();
         if (commandMap != null) {
-            String[] commands = {"lban", "ban", "ban-ip", "unban", "warn", "unwarn", "check", 
+            String[] commands = {"lban", "ban", "ban-ip", "unban", "warn", "unwarn", "check",
                                "report", "admin", "kick", "info", "allowmsg", "warnmsg", "setban"};
-            
+
             for (String commandName : commands) {
                 org.bukkit.command.Command command = commandMap.getCommand(commandName);
                 if (command != null) {
@@ -376,41 +321,12 @@ private void unregisterCommands() {
         return databaseManager;
     }
 
-    public FileConfiguration getBanFC() {
-        return banFC;
-    }
-
-    public FileConfiguration getBanIpFC() {
-        return banIpFC;
-    }
-
-    public FileConfiguration getMuteFC() {
-        return muteFC;
-    }
-
     public FileConfiguration getBroadcastFC() {
         return broadcastFC;
     }
 
-    public FileConfiguration getWarnFC() {
-        return warnFC;
-    }
-
-    public FileConfiguration getIpFC() {
-        return ipFC;
-    }
-
-    public FileConfiguration getReportFC() {
-        return reportFC;
-    }
-
-    public void saveBanConfig() {
-    }
-
-    public void saveBanIpConfig() {
-    }
-
-    public void saveMuteConfig() {
+    public FileConfiguration getChatConfig() {
+        return chatConfig;
     }
 
     public void saveBroadcastConfig() {
@@ -419,9 +335,6 @@ private void unregisterCommands() {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    public void saveWarnConfig() {
     }
 
     public ChestUIListener getChestUIListener() {
@@ -434,6 +347,8 @@ private void unregisterCommands() {
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+            connection.setConnectTimeout(3000);
+            connection.setReadTimeout(3000);
 
             int responseCode = connection.getResponseCode();
             if (responseCode != 200) {
@@ -457,40 +372,11 @@ private void unregisterCommands() {
         }
     }
 
-    public FileConfiguration getChatConfig() {
-        return chatConfig;
-    }
-
     public void checkUpdate() {
         new AutoUpdateManager(this).checkAndAutoUpdate();
     }
-    
+
     public boolean isFolia() {
-        return isFolia;
+        return SchedulerUtils.isFolia();
     }
-    
-public void runAsync(Runnable task) {
-    if (isFolia) {
-        try {
-            // Folia 的异步调度器
-            Class<?> asyncSchedulerClass = Class.forName("io.papermc.paper.threadedregions.scheduler.AsyncScheduler");
-            java.lang.reflect.Method getAsyncSchedulerMethod = Bukkit.class.getMethod("getAsyncScheduler");
-            Object asyncScheduler = getAsyncSchedulerMethod.invoke(null);
-            
-            java.lang.reflect.Method runNowMethod = asyncScheduler.getClass().getMethod("runNow", 
-                JavaPlugin.class, java.util.function.Consumer.class);
-            
-            java.util.function.Consumer<Object> taskConsumer = t -> task.run();
-            runNowMethod.invoke(asyncScheduler, this, taskConsumer);
-        } catch (Exception e) {
-            // 如果反射失败，回退到传统方法（但可能在 Folia 中不可用）
-            getLogger().warning("Folia async scheduler failed, falling back to traditional method");
-            // 在 Folia 中不要使用传统的异步调度器
-            task.run(); // 直接在当前线程运行
-        }
-    } else {
-        // 传统服务器的异步调度
-        Bukkit.getScheduler().runTaskAsynchronously(this, task);
-    }
-}
 }

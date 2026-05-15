@@ -6,10 +6,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.manager.WarnManager;
-import org.leng.object.WarnEntry;
 import org.leng.utils.Utils;
 
-import java.util.List;
 import java.util.Arrays;
 
 public class WarnCommand extends Command implements CommandExecutor {

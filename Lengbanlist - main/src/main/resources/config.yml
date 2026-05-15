@@ -23,7 +23,7 @@ features:
   model: true          # 模型切换 /lban model
   tp: true             # 传送 /lban tp
   chest-ui: true       # 可视化箱子界面 /lban open
-  update-check: false  # 检查插件更新
+  update-check: true  # 检查插件更新
   auto-update: false   # 自动下载更新
 
 # 数据库类型: sqlite 或 mysql
