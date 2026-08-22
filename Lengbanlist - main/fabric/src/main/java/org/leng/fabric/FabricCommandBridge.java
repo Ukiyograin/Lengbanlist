@@ -114,6 +114,8 @@ public final class FabricCommandBridge {
         MessageSink sink = message -> ReflectionSupport.sendMessage(source, message);
         String name = sourceName(source);
         Model model = plugin.getModelManager().getCurrentModel();
+        // 用于 -s 静默标记的临时变量；各 case 在需要时通过 isLeadingSilent/stripLeadingSilent 配对设置。
+        boolean silent = false;
         if ("lban".equalsIgnoreCase(commandName)) {
             if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
                 model.showHelp(sink);
@@ -258,24 +260,27 @@ public final class FabricCommandBridge {
         switch (commandName.toLowerCase()) {
             case "ban":
                 if (!requirePermission(source, sink)) return;
+                silent = isLeadingSilent(args); args = stripLeadingSilent(args);
                 if (args.length < 3) {
-                    sink.sendMessage("§c用法错误喵: /ban <玩家> <时间/auto> <原因>");
+                    sink.sendMessage("§c用法错误喵: /ban <必填>玩家 <必填>时间/auto <必填>原因  [可选 -s 静默]");
                     return;
                 }
-                ban(plugin, sink, name, args[0], args[1], String.join(" ", Arrays.copyOfRange(args, 2, args.length)), false);
+                ban(plugin, sink, name, args[0], args[1], String.join(" ", Arrays.copyOfRange(args, 2, args.length)), false, silent);
                 break;
             case "ban-ip":
                 if (!requirePermission(source, sink)) return;
+                silent = isLeadingSilent(args); args = stripLeadingSilent(args);
                 if (args.length < 3) {
-                    sink.sendMessage(plugin.prefix() + "§c用法喵: /ban-ip <IP> <时间/auto> <原因>");
+                    sink.sendMessage(plugin.prefix() + "§c用法喵: /ban-ip <必填>IP <必填>时间/auto <必填>原因  [可选 -s 静默]");
                     return;
                 }
-                ban(plugin, sink, name, args[0], args[1], String.join(" ", Arrays.copyOfRange(args, 2, args.length)), true);
+                ban(plugin, sink, name, args[0], args[1], String.join(" ", Arrays.copyOfRange(args, 2, args.length)), true, silent);
                 break;
             case "unban":
                 if (!requirePermission(source, sink)) return;
+                silent = isLeadingSilent(args); args = stripLeadingSilent(args);
                 if (args.length < 1) return;
-                if (args[0].contains(".")) plugin.getBanManager().tryUnbanIp(args[0], name, false); else plugin.getBanManager().tryUnbanPlayer(args[0], name, false);
+                if (args[0].contains(".")) plugin.getBanManager().tryUnbanIp(args[0], name, silent); else plugin.getBanManager().tryUnbanPlayer(args[0], name, silent);
                 break;
             case "warn":
                 if (!requirePermission(source, sink)) return;
@@ -293,7 +298,11 @@ public final class FabricCommandBridge {
                 break;
             case "mute":
                 if (!requirePermission(source, sink)) return;
-                if (args.length < 3) return;
+                silent = isLeadingSilent(args); args = stripLeadingSilent(args);
+                if (args.length < 3) {
+                    sink.sendMessage(plugin.prefix() + "§c用法喵: /lban mute <必填>玩家 <必填>时间/auto <必填>原因  [可选 -s 静默]");
+                    return;
+                }
                 long muteDuration = TimeUtils.parseDurationToMillis(args[1]);
                 if (muteDuration <= 0) {
                     sink.sendMessage(plugin.prefix() + "§c时间格式错误喵，请使用 10s, 5m, 2h, 7d, 1w, 1M, 1y, forever 或 auto。");
@@ -301,13 +310,14 @@ public final class FabricCommandBridge {
                 }
                 String muteReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
                 plugin.getMuteManager().mutePlayer(new MuteEntry(args[0], name, TimeUtils.calculateEndTime(muteDuration), muteReason));
-                plugin.broadcastMessage(model.addMute(args[0], muteReason));
+                if (!silent) plugin.broadcastMessage(model.addMute(args[0], muteReason));
                 break;
             case "unmute":
                 if (!requirePermission(source, sink)) return;
+                silent = isLeadingSilent(args); args = stripLeadingSilent(args);
                 if (args.length < 1) return;
                 plugin.getMuteManager().unmutePlayer(args[0]);
-                plugin.broadcastMessage(model.removeMute(args[0]));
+                if (!silent) plugin.broadcastMessage(model.removeMute(args[0]));
                 break;
             case "listmute":
                 if (!requirePermission(source, sink)) return;
@@ -328,6 +338,7 @@ public final class FabricCommandBridge {
                 break;
             case "kick":
                 if (!requirePermission(source, sink)) return;
+                // 原因改为可选；不填时给默认提示，保持行为与 main V1.9.9 一致
                 if (args.length < 1) return;
                 plugin.kickPlayerIfOnline(args[0], args.length > 1 ? String.join(" ", Arrays.copyOfRange(args, 1, args.length)) : "Kicked");
                 break;
@@ -335,7 +346,7 @@ public final class FabricCommandBridge {
                 if (!requirePermission(source, sink)) return;
                 if (args.length < 3) return;
                 String setReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
-                ban(plugin, sink, name, args[0], args[1], setReason, args[0].contains("."));
+                ban(plugin, sink, name, args[0], args[1], setReason, args[0].contains("."), false);
                 break;
             case "report":
                 if (args.length < 2) return;
@@ -350,10 +361,37 @@ public final class FabricCommandBridge {
                 break;
             case "getip":
                 if (!requirePermission(source, sink)) return;
-                if (args.length < 1) return;
+                // 玩家名可选：不填时默认查自己（仅当 source 是玩家时可用）
+                if (args.length < 1) {
+                    String self = sourcePlayerName(source);
+                    if (self == null) {
+                        sink.sendMessage(plugin.prefix() + "§c用法喵: /lban getip <可选>玩家名（不填则查询自己）");
+                        return;
+                    }
+                    args = new String[]{self};
+                }
                 List<String[]> ips = plugin.getIpAssociationManager().getPlayerIps(args[0]);
                 if (ips.isEmpty()) sink.sendMessage(plugin.prefix() + "§c§l查询不到玩家 " + args[0] + " 的 IP 地址");
                 else sink.sendMessage(plugin.prefix() + "§a查询到玩家 " + args[0] + " 的 IP 地址为 " + ips.get(0)[0]);
+                break;
+            case "alts":
+                if (!requirePermission(source, sink)) return;
+                if (args.length < 1) {
+                    sink.sendMessage(plugin.prefix() + "§c用法喵: /lban alts <必填>玩家名");
+                    return;
+                }
+                List<org.leng.manager.IpAssociationManager.AltAccount> alts = plugin.getIpAssociationManager().getAlts(args[0]);
+                if (alts.isEmpty()) {
+                    sink.sendMessage(plugin.prefix() + "§7没有找到玩家 " + args[0] + " 的关联小号。");
+                } else {
+                    sink.sendMessage(plugin.prefix() + "§7玩家 " + args[0] + " 的关联小号（" + alts.size() + "）：");
+                    int max = Math.min(alts.size(), Math.max(1, plugin.getConfigInt("alts.max-scan", 5)));
+                    for (int i = 0; i < max; i++) {
+                        org.leng.manager.IpAssociationManager.AltAccount alt = alts.get(i);
+                        String tag = alt.banned ? " §c[已封禁]" : "";
+                        sink.sendMessage(" §f#" + (i + 1) + " §e" + alt.name + tag);
+                    }
+                }
                 break;
             case "allowmsg":
                 if (!requirePermission(source, sink)) return;
@@ -370,6 +408,38 @@ public final class FabricCommandBridge {
             default:
                 model.showHelp(sink);
                 break;
+        }
+    }
+
+    /**
+     * 若 args 首项是 "-s"，返回 true；否则 false。
+     * 与 stripLeadingSilent() 配对使用：调用方应先调用本方法拿到 silent 标志，
+     * 再把 args = stripLeadingSilent(args) 替换本地变量。
+     */
+    private static boolean isLeadingSilent(String[] args) {
+        return args.length > 0 && "-s".equalsIgnoreCase(args[0]);
+    }
+
+    /** 取出首位 -s 后的剩余参数（若首项不是 -s 则原样返回）。 */
+    private static String[] stripLeadingSilent(String[] args) {
+        if (isLeadingSilent(args)) {
+            String[] trimmed = new String[args.length - 1];
+            System.arraycopy(args, 1, trimmed, 0, trimmed.length);
+            return trimmed;
+        }
+        return args;
+    }
+
+    /** 仅当 source 是玩家时返回其名字，否则返回 null。 */
+    private static String sourcePlayerName(Object source) {
+        try {
+            // ServerCommandSource 不带玩家名；Entity 才有 getName().getString() 等
+            Class<?> entityCls = Class.forName("net.minecraft.entity.Entity");
+            if (!entityCls.isInstance(source)) return null;
+            Object nameObj = source.getClass().getMethod("getName").invoke(source);
+            return nameObj == null ? null : String.valueOf(nameObj);
+        } catch (Throwable ignored) {
+            return null;
         }
     }
 
@@ -420,7 +490,7 @@ public final class FabricCommandBridge {
         return null;
     }
 
-    private static void ban(FabricLengbanlist plugin, MessageSink sink, String staff, String target, String timeArg, String reason, boolean ip) {
+    private static void ban(FabricLengbanlist plugin, MessageSink sink, String staff, String target, String timeArg, String reason, boolean ip, boolean silent) {
         long duration;
         boolean isAuto = "auto".equalsIgnoreCase(timeArg);
         org.leng.manager.EscalationManager.EscalationResult escalationResult = null;
@@ -448,9 +518,9 @@ public final class FabricCommandBridge {
         long end = TimeUtils.calculateEndTime(duration);
         BanManager.BanMutationResult banResult;
         if (ip) {
-            banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(target, staff, end, reason, isAuto));
+            banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(target, staff, end, reason, isAuto), silent);
         } else {
-            banResult = plugin.getBanManager().tryBanPlayer(new BanEntry(target, staff, end, reason, isAuto));
+            banResult = plugin.getBanManager().tryBanPlayer(new BanEntry(target, staff, end, reason, isAuto), silent);
         }
         if (!banResult.isApplied()) {
             org.leng.manager.BanMutationFeedback.sendFailure(sink, banResult, target, ip);

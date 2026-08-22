@@ -30,6 +30,10 @@ public class SimpleYamlConfig {
                 int indent = countIndent(noComment) / 2;
                 String trimmed = noComment.trim();
                 if (trimmed.startsWith("- ") && !path.isEmpty()) {
+                    // 先把 path 弹出到列表所在的层级，避免上一条目写入后路径
+                    // 被推深（例如上一个 - key: value 把 path 推成 [..., mirrors, name]），
+                    // 再用 join 计算 listPath 时就会算错父列表的位置。
+                    while (path.size() > indent) path.remove(path.size() - 1);
                     String item = trimmed.substring(2).trim();
                     String listPath = String.join(".", path);
                     // 判断是否是 "key: value" 形式（即 list-of-maps）
@@ -38,14 +42,21 @@ public class SimpleYamlConfig {
                         String entryKey = item.substring(0, colon).trim();
                         Object entryValue = parseValue(item.substring(colon + 1).trim());
                         List<Object> list = ensureList(listPath);
-                        Object last = list.get(list.size() - 1);
-                        if (!(last instanceof Map)) {
-                            Map<String, Object> map = new LinkedHashMap<>();
+                        // 决定是新增一个 map 还是沿用上一个 map：
+                        //   - 列表为空 → 一定是新增（否则 list.get(-1) 会抛 IndexOutOfBoundsException）
+                        //   - 上一个元素不是 Map → 新增（例如上一个是 scalar）
+                        //   - 上一个元素已是 Map 且已包含当前 entryKey → 新增（新的 "- key: value" 视为新条目）
+                        //   - 否则沿用上一个 map（让后续同条目下的字段合并进来）
+                        Object last = list.isEmpty() ? null : list.get(list.size() - 1);
+                        Map<String, Object> map;
+                        if (last instanceof Map && !((Map<?, ?>) last).containsKey(entryKey)) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> existing = (Map<String, Object>) last;
+                            map = existing;
+                        } else {
+                            map = new LinkedHashMap<>();
                             list.add(map);
-                            last = map;
                         }
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> map = (Map<String, Object>) last;
                         map.put(entryKey, entryValue);
                         // 进入该 map 内部，让后续嵌套字段（如 `  type: ...`）写入到 map
                         path = new ArrayList<>(path);
@@ -65,13 +76,31 @@ public class SimpleYamlConfig {
                 while (path.size() > indent) path.remove(path.size() - 1);
                 String key = trimmed.substring(0, trimmed.indexOf(':')).trim();
                 String rawValue = trimmed.substring(trimmed.indexOf(':') + 1).trim();
-                List<String> full = new ArrayList<>(path);
-                full.add(key);
                 if (rawValue.isEmpty()) {
                     path.add(key);
                     continue;
                 }
-                values.put(String.join(".", full), parseValue(rawValue));
+                Object parsedValue = parseValue(rawValue);
+                List<String> full = new ArrayList<>(path);
+                full.add(key);
+                String fullKey = String.join(".", full);
+                // 如果父路径是 list-of-maps（key: value 直接挂在 `- key: value` 之下），
+                // 把值写到列表最后一项的 map 里，而不是写到扁平的点路径。
+                // 注意：path 末尾的 entryKey 来自上一个 `- key: value` 时的压栈，需要再
+                // 往上一层才能拿到真正的列表路径。
+                if (full.size() >= 3) {
+                    List<String> parentPath = full.subList(0, full.size() - 2);
+                    String parentKey = String.join(".", parentPath);
+                    Object parent = values.get(parentKey);
+                    if (parent instanceof List && !((List<?>) parent).isEmpty()
+                            && ((List<?>) parent).get(((List<?>) parent).size() - 1) instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> last = (Map<String, Object>)
+                                ((List<Object>) parent).get(((List<?>) parent).size() - 1);
+                        last.put(key, parsedValue);
+                    }
+                }
+                values.put(fullKey, parsedValue);
             }
         }
     }

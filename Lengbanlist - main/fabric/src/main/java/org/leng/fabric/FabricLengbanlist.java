@@ -60,7 +60,15 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         dataFolder = FabricLoader.getInstance().getConfigDir().resolve("Lengbanlist").toFile();
         dataFolder.mkdirs();
         try {
-            // 生成自定义模型目录和示例文件
+            // 先只释放并加载 EULA：未同意时绝不生成其他配置文件或模型目录，避免污染用户首次安装。
+            if (!loadEulaConfig()) {
+                logger.severe("==================================================");
+                logger.severe("插件启用被终止：您需要同意EULA才能使用本插件！");
+                logger.severe("请编辑 plugins/Lengbanlist/eula.yml 文件");
+                logger.severe("==================================================");
+                return;
+            }
+            // 仅在同意 EULA 后才生成自定义模型目录和示例文件。
             File modelsDir = new File(dataFolder, "models");
             if (!modelsDir.exists()) {
                 modelsDir.mkdirs();
@@ -68,14 +76,6 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             File exampleModelFile = new File(modelsDir, "example-custom-model.yml");
             if (!exampleModelFile.exists()) {
                 copyDefault("models/example-custom-model.yml");
-            }
-            // 先只释放并加载 EULA：未同意时绝不生成其他配置文件，避免污染用户首次安装。
-            if (!loadEulaConfig()) {
-                logger.severe("==================================================");
-                logger.severe("插件启用被终止：您需要同意EULA才能使用本插件！");
-                logger.severe("请编辑 plugins/Lengbanlist/eula.yml 文件");
-                logger.severe("==================================================");
-                return;
             }
             loadConfigFiles();
             databaseManager = new DatabaseManager(this);
