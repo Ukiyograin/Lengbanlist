@@ -7,3 +7,6 @@ Lengbanlist - main/dependency-reduced-pom.xml
 # Maven multi-module build output
 Lengbanlist - main/*/target/
 Lengbanlist - main/*/dependency-reduced-pom.xml
+
+# flatten-maven-plugin build artifacts
+*.flattened-pom.xml

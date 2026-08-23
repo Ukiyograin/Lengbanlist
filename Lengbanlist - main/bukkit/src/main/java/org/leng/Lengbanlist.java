@@ -210,14 +210,20 @@ public void onEnable() {
     getCommand("lban").setExecutor(new LengbanlistCommand("lban", Lengbanlist.this));
     BanCommand banCmd = new BanCommand(Lengbanlist.this);
     setFeatureExecutor("ban", "ban", banCmd);
-    getCommand("ban").setTabCompleter(banCmd);
+    if (isFeatureEnabled("ban")) {
+        getCommand("ban").setTabCompleter(banCmd);
+    }
     BanIpCommand banIpCmd = new BanIpCommand(Lengbanlist.this);
     setFeatureExecutor("ban-ip", "ban-ip", banIpCmd);
-    getCommand("ban-ip").setTabCompleter(banIpCmd);
+    if (isFeatureEnabled("ban-ip")) {
+        getCommand("ban-ip").setTabCompleter(banIpCmd);
+    }
     setFeatureExecutor("unban", "unban", new UnbanCommand(Lengbanlist.this));
     WarnCommand warnCmd = new WarnCommand(Lengbanlist.this);
     setFeatureExecutor("warn", "warn", warnCmd);
-    getCommand("warn").setTabCompleter(warnCmd);
+    if (isFeatureEnabled("warn")) {
+        getCommand("warn").setTabCompleter(warnCmd);
+    }
     setFeatureExecutor("unwarn", "unwarn", new UnwarnCommand(Lengbanlist.this));
     setFeatureExecutor("check", "check", new CheckCommand(Lengbanlist.this));
     setFeatureExecutor("report", "report", new ReportCommand(Lengbanlist.this));
@@ -229,7 +235,9 @@ public void onEnable() {
     setFeatureExecutor("setban", "setban", new SetBanCommand(Lengbanlist.this));
     HistoryCommand historyCmd = new HistoryCommand(Lengbanlist.this);
     setFeatureExecutor("history", "history", historyCmd);
-    getCommand("history").setTabCompleter(historyCmd);
+    if (isFeatureEnabled("history")) {
+        getCommand("history").setTabCompleter(historyCmd);
+    }
     setFeatureExecutor("mute", "mute", new MuteCommand(Lengbanlist.this));
     setFeatureExecutor("mute", "unmute", new UnmuteCommand(Lengbanlist.this));
     setFeatureExecutor("mute", "listmute", new ListMuteCommand(Lengbanlist.this));
@@ -362,17 +370,28 @@ public void onDisable() {
         if (command == null) {
             return;
         }
-        command.setExecutor((sender, cmd, label, args) -> {
-            if (!isFeatureEnabled(feature)) {
-                sendFeatureDisabled(sender);
-                return true;
+        if (!isFeatureEnabled(feature)) {
+            // 功能禁用时释放该命令，避免钩住并拦截其他插件注册的同名命令（如 /report）
+            getLogger().info("功能 " + feature + " 已禁用，/"+ commandName + " 命令已取消注册，可被其他插件接管。");
+            unregisterCommand(command);
+            return;
+        }
+        command.setExecutor(executor);
+    }
+
+    private void unregisterCommand(PluginCommand command) {
+        try {
+            CommandMap commandMap = getCommandMap();
+            if (commandMap != null) {
+                command.unregister(commandMap);
             }
-            return executor.onCommand(sender, cmd, label, args);
-        });
+        } catch (Exception e) {
+            getLogger().warning("注销命令 " + command.getName() + " 时出现错误: " + e.getMessage());
+        }
     }
 
     public void sendFeatureDisabled(CommandSender sender) {
-        Utils.sendMessage(sender, prefix() + "§c这个功能已被管理员禁言喵。");
+        Utils.sendMessage(sender, prefix() + "§c该功能已被管理员禁用。");
     }
 
     public void setBroadcastEnabled(boolean broadcastEnabled) {

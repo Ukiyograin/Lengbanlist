@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
@@ -262,7 +263,12 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
 
     @Override
     public String getPluginVersion() {
-        return "1.9.9";
+        // 从 fabric.mod.json 元数据读取真实版本，避免与构建版本脱节
+        return FabricLoader.getInstance().getModContainer(MOD_ID)
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .filter(Objects::nonNull)
+                .filter(version -> !version.isEmpty())
+                .orElse("unknown");
     }
 
     @Override
