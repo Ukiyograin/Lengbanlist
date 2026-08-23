@@ -52,24 +52,33 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     private Thread updateCheckThread;
     private Thread broadcastThread;
     private Thread historyCleanupThread;
-    private boolean initialized;
-    private boolean stopped;
+    private FabricMetrics metrics;
+    private volatile boolean initialized;
+    private volatile boolean stopped;
 
     @Override
     public void onInitialize() {
         PlatformHolder.set(this);
         dataFolder = FabricLoader.getInstance().getConfigDir().resolve("Lengbanlist").toFile();
         dataFolder.mkdirs();
+        // 先只释放并加载 EULA：未同意时绝不生成其他配置文件或模型目录，避免污染用户首次安装。
+        boolean eulaOk;
         try {
-            // 先只释放并加载 EULA：未同意时绝不生成其他配置文件或模型目录，避免污染用户首次安装。
-            if (!loadEulaConfig()) {
-                logger.severe("==================================================");
-                logger.severe("插件启用被终止：您需要同意EULA才能使用本插件！");
-                logger.severe("请编辑 plugins/Lengbanlist/eula.yml 文件");
-                logger.severe("==================================================");
-                return;
-            }
-            // 仅在同意 EULA 后才生成自定义模型目录和示例文件。
+            eulaOk = loadEulaConfig();
+        } catch (Exception e) {
+            logger.severe("EULA 配置加载失败，插件将停止启用: " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+        if (!eulaOk) {
+            logger.severe("==================================================");
+            logger.severe("插件启用被终止：您需要同意EULA才能使用本插件！");
+            logger.severe("请编辑 plugins/Lengbanlist/eula.yml 文件");
+            logger.severe("==================================================");
+            return;
+        }
+        // 仅在同意 EULA 后才生成自定义模型目录和示例文件。
+        try {
             File modelsDir = new File(dataFolder, "models");
             if (!modelsDir.exists()) {
                 modelsDir.mkdirs();
@@ -78,7 +87,22 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             if (!exampleModelFile.exists()) {
                 copyDefault("models/example-custom-model.yml");
             }
+        } catch (Exception e) {
+            logger.severe("示例模型文件生成失败，插件将停止启用: " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+        try {
             loadConfigFiles();
+        } catch (Exception e) {
+            logger.severe("配置文件加载失败，插件将停止启用: " + e.getMessage());
+            e.printStackTrace();
+            logger.severe("==================================================");
+            logger.severe("插件启用被终止：配置文件加载失败，请检查 config.yml / broadcast.yml / chatconfig.yml 是否存在或权限是否正确。");
+            logger.severe("==================================================");
+            return;
+        }
+        try {
             databaseManager = new DatabaseManager(this);
             databaseManager.initialize();
             banManager = new BanManager(this);
@@ -91,6 +115,15 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             modelManager = ModelManager.getInstance();
             webServer = new WebServer(this);
             serverFeatures = new FabricServerFeatures(this);
+        } catch (Exception e) {
+            logger.severe("数据库初始化失败，插件将停止启用: " + e.getMessage());
+            e.printStackTrace();
+            logger.severe("==================================================");
+            logger.severe("插件启用被终止：数据库初始化失败，请检查 database 配置和数据库连接。");
+            logger.severe("==================================================");
+            return;
+        }
+        try {
             logger.info(prefix() + "§f原神§2正在加载");
             FabricCommandBridge.register(this);
             FabricJoinBridge.register(this);
@@ -103,11 +136,12 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             }
             logger.info(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName());
         } catch (Exception e) {
-            logger.severe("数据库初始化失败，插件将停止启用: " + e.getMessage());
+            logger.severe("命令或事件注册失败，插件将停止启用: " + e.getMessage());
             e.printStackTrace();
             logger.severe("==================================================");
-            logger.severe("插件启用被终止：数据库初始化失败，请检查 database 配置和数据库连接。");
+            logger.severe("插件启用被终止：命令或事件注册失败，请检查日志中的具体异常。");
             logger.severe("==================================================");
+            return;
         }
     }
 
@@ -160,12 +194,49 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         if (!text.contains("config-version:")) {
             if (!text.endsWith("\n")) text += "\n";
             text += "\n# 配置版本\nconfig-version: 1\n";
-            Files.write(path, text.getBytes("UTF-8"));
+            atomicWriteBytes(path, text.getBytes("UTF-8"));
+        }
+    }
+
+    /**
+     * 原子写入：先写到同目录下的临时文件，再原子替换目标文件，避免半写状态损坏配置。
+     * 不支持 ATOMIC_MOVE 的文件系统回退为普通写入。
+     */
+    private void atomicWriteBytes(Path target, byte[] data) throws IOException {
+        Path dir = target.getParent();
+        if (dir == null) dir = target.toAbsolutePath().getParent();
+        Path tmp = Files.createTempFile(dir, target.getFileName().toString() + ".", ".tmp");
+        try {
+            Files.write(tmp, data);
+            try {
+                Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException amns) {
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            try { Files.deleteIfExists(tmp); } catch (IOException ignored) {}
+        }
+    }
+
+    private void atomicWriteLines(Path target, java.util.List<String> lines) throws IOException {
+        Path dir = target.getParent();
+        if (dir == null) dir = target.toAbsolutePath().getParent();
+        Path tmp = Files.createTempFile(dir, target.getFileName().toString() + ".", ".tmp");
+        try {
+            Files.write(tmp, lines, StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException amns) {
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            try { Files.deleteIfExists(tmp); } catch (IOException ignored) {}
         }
     }
 
     private void startMetrics() {
-        new FabricMetrics(this, LengbanlistConstants.BSTATS_SERVICE_ID);
+        // 仅构造 metrics 实例；线程启动推迟到服务器就绪后（见 onServerStarted -> startPeriodicTasks 之后）。
+        metrics = new FabricMetrics(this, LengbanlistConstants.BSTATS_SERVICE_ID);
     }
 
     public void setServer(Object server) {
@@ -177,6 +248,11 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         if (initialized || stopped) return;
         initialized = true;
         startPeriodicTasks();
+        // metrics 实例在 onInitialize 阶段构造，线程启动延迟到这里：此时 server 字段已就绪，
+        // 上报线程读取 plugin.getOnlinePlayerCount() 时能拿到正确的服务端状态。
+        if (metrics != null) {
+            metrics.start();
+        }
         if (getConfigBoolean("web.enabled", false)) {
             webServer.start();
         }
@@ -337,7 +413,7 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         if (!updated) {
             lines.add(key + ": \"" + value + "\"");
         }
-        Files.write(path, lines, StandardCharsets.UTF_8);
+        atomicWriteLines(path, lines);
     }
 
     @Override

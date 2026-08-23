@@ -133,13 +133,17 @@ vpn-detection:
 # ---------- Web 管理面板 ----------
 web:
   enabled: false                # 是否启用 Web 管理面板
-  host: "127.0.0.1"             # 监听地址（127.0.0.1 仅本机，0.0.0.0 允许远程）
+  host: "127.0.0.1"             # 监听地址（默认仅本机；如需远程访问请改为 0.0.0.0 并启用 TLS/反代）
   port: 8080                    # 监听端口
-  jwt-secret: "change-this-to-a-random-secret-key"  # JWT 密钥（请改为随机字符串）
+  jwt-secret: ""                # JWT 密钥（HS256）；留空将自动生成 48 字节随机密钥并写回本文件
   admin-username: "admin"       # 管理员用户名
-  admin-password: "lban123"     # 管理员密码
+  admin-password: ""            # 管理员密码（必须设置强密码，否则 Web 服务器将拒绝启动）
   operator-weight: 2147483647   # 操作者权重（免疫比较，默认最高）
-  allowed-origins: []           # 允许的 CORS 来源；空数组 = 仅同源；公开部署请添加目标域名
+  # 允许的 CORS 来源白名单；空数组 = 不允许任何跨源 Origin（仅同源可访问）。
+  # 公开部署请按需添加，例如：
+  #   - "https://admin.example.com"
+  #   - "http://192.168.1.100:8080"
+  allowed-origins: []
 
 # ---------- 封禁时长自动升级（escalation） ----------
 # 惯犯封禁时封禁时长逐级递增

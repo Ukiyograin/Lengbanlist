@@ -48,8 +48,15 @@ public final class FabricCommandBridge {
 
     private static void registerCommands(FabricLengbanlist plugin, Object dispatcher) {
         for (String command : COMMANDS) {
-            registerLiteral(plugin, dispatcher, command);
+            // lban / info / admin 等核心命令不受 features.<name> 控制，始终注册；其余命令按功能开关决定是否注册。
+            if (isCoreCommand(command) || plugin.isFeatureEnabled(command)) {
+                registerLiteral(plugin, dispatcher, command);
+            }
         }
+    }
+
+    private static boolean isCoreCommand(String command) {
+        return "lban".equalsIgnoreCase(command) || "info".equalsIgnoreCase(command) || "admin".equalsIgnoreCase(command);
     }
 
     private static void registerLiteral(FabricLengbanlist plugin, Object dispatcher, String command) {
@@ -349,6 +356,10 @@ public final class FabricCommandBridge {
                 ban(plugin, sink, name, args[0], args[1], setReason, args[0].contains("."), false);
                 break;
             case "report":
+                if (!plugin.isFeatureEnabled("report")) {
+                    sink.sendMessage(plugin.prefix() + "§c该功能已被管理员禁用");
+                    return;
+                }
                 if (args.length < 2) return;
                 String reportReason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
                 ReportEntry report = new ReportEntry(args[0], name, reportReason, UUID.randomUUID().toString(), System.currentTimeMillis(), "未处理");

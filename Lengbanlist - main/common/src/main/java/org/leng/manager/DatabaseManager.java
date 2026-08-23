@@ -619,7 +619,8 @@ public class DatabaseManager {
 
     public List<String> getWarnedPlayers() {
         List<String> players = new ArrayList<>();
-        try (Connection connection = getConnection(); Statement st = connection.createStatement();
+        try (Connection connection = getConnection();
+             Statement st = connection.createStatement();
              ResultSet rs = st.executeQuery("SELECT DISTINCT player FROM warnings")) {
             while (rs.next()) {
                 players.add(rs.getString("player"));
@@ -722,11 +723,11 @@ public class DatabaseManager {
 
     public boolean addAuditLogChained(String actor, String action, String target, String reason, boolean success) {
         Connection connection = null;
+        boolean originalAutoCommit = false;
+        boolean autoCommitChanged = false;
         try {
             connection = getConnection();
-            boolean originalAutoCommit = connection.getAutoCommit();
-            boolean autoCommitChanged = false;
-            boolean restoreAutoCommit = false;
+            originalAutoCommit = connection.getAutoCommit();
             try {
                 connection.setAutoCommit(false);
                 autoCommitChanged = true;
@@ -755,19 +756,17 @@ public class DatabaseManager {
                     inserted = ps.executeUpdate();
                 }
                 connection.commit();
-                restoreAutoCommit = true;
                 return inserted == 1;
             } catch (SQLException e) {
                 try {
                     connection.rollback();
-                    restoreAutoCommit = true;
                 } catch (SQLException rollbackError) {
                     logSql(rollbackError);
                 }
                 logSql(e);
                 return false;
             } finally {
-                if (autoCommitChanged && restoreAutoCommit) {
+                if (autoCommitChanged) {
                     try {
                         connection.setAutoCommit(originalAutoCommit);
                     } catch (SQLException e) {
@@ -908,7 +907,7 @@ public class DatabaseManager {
         long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
         executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
         executeUpdate("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff);
-        executeUpdate("DELETE FROM mutes WHERE end_time != " + Long.MAX_VALUE + " AND end_time < ?", cutoff);
+        executeUpdate("DELETE FROM mutes WHERE end_time < ?", cutoff);
         executeUpdate("DELETE FROM warnings WHERE revoked = 1 AND warn_time < ?", cutoff);
         executeUpdate("DELETE FROM reports WHERE status != '未处理' AND timestamp < ?", cutoff);
         executeUpdate("DELETE FROM audit_log WHERE timestamp < ?", cutoff);

@@ -8,13 +8,17 @@ import org.leng.platform.PlatformHolder;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ModelManager {
     private static ModelManager instance;
-    private static Map<String, Model> models = new HashMap<>();
-    private static Model currentModel;
+    // 共享 map，跨线程访问（reload、switchModel、自定义模型加载）必须用线程安全实现，
+    // 否则在并发切换/重载时可能出现 ConcurrentModificationException 或 HashMap 内部损坏。
+    private static final Map<String, Model> models = new ConcurrentHashMap<>();
+    private static volatile Model currentModel;
     private boolean enabled = true;
 
     public static ModelManager getInstance() {
@@ -46,7 +50,17 @@ public class ModelManager {
 
     private void loadCustomModels() {
         // 重新加载前，先移除上一次加载的自定义模型（内置模型会重新注册，无需清理）
-        models.values().removeIf(model -> model instanceof CustomModel);
+        // ConcurrentHashMap 的 values 视图不支持 removeIf，改为先收集待删除的 key 再移除，
+        // 避免在并发迭代时破坏视图或抛 UnsupportedOperationException。
+        List<String> customKeys = new ArrayList<>();
+        for (Map.Entry<String, Model> entry : models.entrySet()) {
+            if (entry.getValue() instanceof CustomModel) {
+                customKeys.add(entry.getKey());
+            }
+        }
+        for (String key : customKeys) {
+            models.remove(key);
+        }
 
         File modelsDir = new File(PlatformHolder.get().getDataFolder(), "models");
         if (!modelsDir.exists() || !modelsDir.isDirectory()) {

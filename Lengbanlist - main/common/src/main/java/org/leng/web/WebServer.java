@@ -27,7 +27,10 @@ import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -46,6 +49,11 @@ public class WebServer {
     private HttpServer server;
     private AuthManager authManager;
     private boolean running;
+    /**
+     * 表示 Web 服务器因不安全的配置被拒绝启动。
+     * 与 running 独立：running 表示服务器当前已绑定；该字段表示上一次拒绝原因。
+     */
+    private String disabledReason;
 
     public WebServer(LengbanlistPlatform plugin) {
         this.plugin = plugin;
@@ -54,12 +62,51 @@ public class WebServer {
     public boolean start() {
         if (running) return true;
         try {
-            String host = plugin.getConfigString("web.host", "0.0.0.0");
+            String host = plugin.getConfigString("web.host", "127.0.0.1");
             int port = plugin.getConfigInt("web.port", 8080);
-            String secret = plugin.getConfigString("web.jwt-secret", "change-this-to-a-random-secret-key");
+            String secret = plugin.getConfigString("web.jwt-secret", "");
             String username = plugin.getConfigString("web.admin-username", "admin");
-            String password = plugin.getConfigString("web.admin-password", "admin123");
+            String password = plugin.getConfigString("web.admin-password", "");
+
+            // P0-1: 如果 JWT 密钥缺失或为空，使用 SecureRandom 生成 48 字节强随机密钥，
+            // 并持久化回配置文件，保证重启后 JWT 令牌仍然有效。
+            if (secret == null || secret.trim().isEmpty()) {
+                secret = generateRandomJwtSecret();
+                try {
+                    plugin.setConfigValue("web.jwt-secret", secret);
+                    plugin.saveConfigFile();
+                    plugin.getLogger().warning(
+                            "已生成新的 JWT 密钥并写入 config.yml（web.jwt-secret），请妥善保存；重启服务器会导致所有已签发令牌失效。");
+                } catch (Exception persistEx) {
+                    plugin.getLogger().severe("持久化新生成的 JWT 密钥失败: " + persistEx.getMessage());
+                }
+            }
+
+            // P1-5: 监听地址非环回时给出显著警告，明文 HTTP 在网络上存在凭证泄露风险。
+            if (!isLoopbackHost(host)) {
+                plugin.getLogger().warning(
+                        "============================================================");
+                plugin.getLogger().warning(" Web 管理面板绑定到非环回地址: " + host);
+                plugin.getLogger().warning(" 当前使用明文 HTTP 协议，登录密码与 JWT 令牌将以明文形式在网络上传输。");
+                plugin.getLogger().warning(" 强烈建议仅在受信局域网/经反向代理启用 TLS 后使用，否则存在凭证窃取风险。");
+                plugin.getLogger().warning(
+                        "============================================================");
+            }
+
+            // P0-2: 校验密码，若缺失/默认/为空则拒绝启动 Web 服务器（不抛出异常）。
+            if (!isAdminPasswordSecure(password)) {
+                disabledReason = "web-disabled-due-to-insecure-config";
+                plugin.getLogger().severe(
+                        "Web 管理面板启动失败：web.admin-password 缺失、为空或使用了公开已知默认值（admin123/changeme/password）。");
+                plugin.getLogger().severe(
+                        " 请在 config.yml 中设置一个强密码（建议至少 12 位，包含大小写字母、数字与符号），然后重启服务器。");
+                plugin.getLogger().severe(
+                        " Web 服务器已拒绝绑定，直到管理员修正此配置。");
+                return false;
+            }
+
             if (!validateWebCredentials(secret, password)) {
+                disabledReason = "web-disabled-due-to-insecure-config";
                 return false;
             }
 
@@ -91,6 +138,7 @@ public class WebServer {
 
             server.start();
             running = true;
+            disabledReason = null;
             String displayHost = host.equals("0.0.0.0") ? "本机IP" : host;
             plugin.getLogger().info("Web管理面板已启动: http://" + displayHost + ":" + port);
             if (host.equals("0.0.0.0")) {
@@ -104,10 +152,37 @@ public class WebServer {
         }
     }
 
+    /**
+     * P0-1: 生成 48 字节（384 位）的加密学随机密钥，并使用 URL-safe Base64（无填充）编码，
+     * 提供足够的熵来抵御 HS256 暴力破解。
+     */
+    private String generateRandomJwtSecret() {
+        byte[] randomBytes = new byte[48];
+        new SecureRandom().nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+    }
+
+    /**
+     * P1-5: 判断给定 host 是否为环回地址。
+     */
+    private boolean isLoopbackHost(String host) {
+        if (host == null) return false;
+        String h = host.trim().toLowerCase();
+        return h.equals("127.0.0.1") || h.equals("localhost") || h.equals("::1") || h.equals("[::1]");
+    }
+
     public void stop() {
         if (server != null) {
-            server.stop(0);
+            try {
+                server.stop(0);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Web管理面板关闭时出现异常: " + e.getMessage());
+            }
+            // P3-18: 显式清空 server 引用，避免 stop()/start() 周期中残留旧实例。
+            // 同时清空 insecure-config 拒绝状态，确保管理员修正配置后下次启动可正常通过校验。
+            server = null;
             running = false;
+            disabledReason = null;
             plugin.getLogger().info("Web管理面板已关闭");
         }
     }
@@ -125,6 +200,29 @@ public class WebServer {
         }
         return true;
     }
+
+    /**
+     * P0-2: 检查 admin 密码是否安全。缺失、空、命中已知默认值（admin123/changeme/password 等）
+     * 均视为不安全，必须拒绝启动 Web 服务器。
+     */
+    private boolean isAdminPasswordSecure(String password) {
+        if (password == null) return false;
+        String trimmed = password.trim();
+        if (trimmed.isEmpty()) return false;
+        String lower = trimmed.toLowerCase();
+        for (String knownDefault : DEFAULT_INSECURE_PASSWORDS) {
+            if (knownDefault.equalsIgnoreCase(lower)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * P0-2: 公开已知的弱密码黑名单（仅包含 fix 列表中明确指出的三项，避免误伤合法密码）。
+     */
+    private static final java.util.Set<String> DEFAULT_INSECURE_PASSWORDS = java.util.Set.of(
+            "admin123", "changeme", "password");
 
     public boolean isRunning() {
         return running;
@@ -301,6 +399,11 @@ public class WebServer {
             }
         });
         try {
+            // P2-11: 不同平台对 scheduled.cancel() 的语义差异较大：
+            // - Bukkit 调度器/BukkitTask.cancel() 会从调度表中移除任务，但如果任务已开始执行则不会中断；
+            // - Fabric 等不实现取消的平台返回 NOOP，cancel() 实际是空操作，任务仍会执行到完成；
+            // - 即使 cancel 生效，task 内部的副作用（数据库写入、广播、状态修改等）已经发生，无法回滚。
+            // 因此调用方不应假设 cancel 之后无副作用；此处仅用于让 client 尽早超时返回，避免重试造成重复扣减。
             if (!latch.await(5, TimeUnit.SECONDS)) {
                 scheduled.cancel();
                 sendError(exchange, 504, "主线程繁忙，操作可能已在后台执行，请稍后在列表中确认结果，不要重复提交");
@@ -354,6 +457,22 @@ public class WebServer {
         if (origin == null) {
             return;
         }
+        // P1-3: 读取白名单 web.allowed-origins；仅在 Origin 精确匹配白名单项时返回 CORS 头。
+        List<String> allowedOrigins = plugin.getConfigStringList("web.allowed-origins");
+        boolean originAllowed = false;
+        for (String allowed : allowedOrigins) {
+            if (allowed != null && !allowed.trim().isEmpty() && origin.equalsIgnoreCase(allowed.trim())) {
+                originAllowed = true;
+                break;
+            }
+        }
+        if (!originAllowed) {
+            // 不匹配白名单 → 不发送 Access-Control-Allow-Origin（浏览器将阻止跨域请求）。
+            // 仍需设置 Vary 头以防缓存混淆（规范要求）。
+            exchange.getResponseHeaders().set("Vary", "Origin");
+            return;
+        }
+        // 命中白名单 → 返回 CORS 头（保留原有同源分支以防配置为空但仍是同源请求）。
         String host = exchange.getRequestHeaders().getFirst("Host");
         if (host != null && (origin.equalsIgnoreCase("http://" + host) || origin.equalsIgnoreCase("https://" + host))) {
             exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
@@ -361,15 +480,10 @@ public class WebServer {
             exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
             return;
         }
-        for (String allowed : plugin.getConfigStringList("web.allowed-origins")) {
-            if (!allowed.trim().isEmpty() && origin.equalsIgnoreCase(allowed.trim())) {
-                exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
-                exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-                return;
-            }
-        }
-        exchange.getResponseHeaders().set("Vary", "Origin");
+        // 白名单匹配（非同源） → 返回 CORS 头
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
+        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
     }
 
     private void handleOptions(HttpExchange exchange) {
@@ -377,7 +491,8 @@ public class WebServer {
         try {
             exchange.sendResponseHeaders(204, -1);
         } catch (IOException e) {
-
+            // P2-10: 不再静默吞掉 CORS 预检响应失败；记录异常栈便于排查客户端连通性问题。
+            plugin.getLogger().warning("CORS 预检响应失败 (OPTIONS " + exchange.getRequestURI() + "): " + e.getMessage());
         } finally {
             exchange.close();
         }
@@ -1103,20 +1218,56 @@ public class WebServer {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         try {
             String path = exchange.getRequestURI().getPath();
-            if (path == null || path.equals("/")) path = "/index.html";
+            if (path == null || path.equals("/") || path.isEmpty()) path = "/index.html";
 
-            String resourcePath = "web" + path;
+            // P1-4: 路径遍历保护 —— 拒绝包含 .. 或反斜杠的请求，并对所有非 root 起始路径添加 / 前缀。
+            if (path.contains("..") || path.contains("\\")) {
+                sendError(exchange, 400, "非法路径");
+                return;
+            }
+            String normalized;
+            try {
+                // 使用 Path.normalize 把多余的 "." / "a/b/.." 等折叠，但保留安全语义检查。
+                normalized = Paths.get(path).normalize().toString().replace('\\', '/');
+            } catch (Exception ex) {
+                sendError(exchange, 400, "非法路径");
+                return;
+            }
+            if (!normalized.startsWith("/")) {
+                normalized = "/" + normalized;
+            }
+            // 拒绝 normalize 之后越出 web/ 根目录的访问（例如 /../foo → /foo 仍以 / 开头，
+            // 这里再校验不能以 /.. 开头，防止 normalize 边界绕过）。
+            String tail = normalized.substring(1); // 去掉前导 /
+            if (tail.isEmpty()) tail = "index.html";
+            // 再次保险：拆分每个段，任何段为 .. 或 . 即拒绝（防止 normalize 边界绕过）。
+            for (String seg : tail.split("/")) {
+                if (seg.equals("..") || seg.equals(".")) {
+                    sendError(exchange, 403, "禁止的路径访问");
+                    return;
+                }
+            }
+
+            String resourcePath = "web/" + tail;
+            // 最终防御：解析后的路径必须仍然在 web/ 根目录之下，绝不允许穿越到类路径其他位置。
+            Path resourceAbsolute = Paths.get(resourcePath).toAbsolutePath().normalize();
+            Path webRoot = Paths.get("web").toAbsolutePath().normalize();
+            if (!resourceAbsolute.startsWith(webRoot)) {
+                sendError(exchange, 403, "禁止的路径访问");
+                return;
+            }
+
             java.io.InputStream stream = plugin.getResourceStream(resourcePath);
             if (stream != null) {
                 byte[] bytes = readAllBytes(stream);
-                exchange.getResponseHeaders().set("Content-Type", getMimeType(path));
+                exchange.getResponseHeaders().set("Content-Type", getMimeType(tail));
                 exchange.sendResponseHeaders(200, bytes.length);
                 exchange.getResponseBody().write(bytes);
                 exchange.close();
                 return;
             }
 
-            if (path.equals("/index.html")) {
+            if (tail.equals("index.html")) {
                 JsonObject info = new JsonObject();
                 info.addProperty("name", "Lengbanlist Web API");
                 info.addProperty("version", plugin.getPluginVersion());
