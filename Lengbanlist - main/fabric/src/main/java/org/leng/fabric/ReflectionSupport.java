@@ -6,16 +6,81 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 
 public final class ReflectionSupport {
+    // 生产环境（正式版服务端）中 net.minecraft 类使用 intermediary 名称，
+    // yarn 名称仅存在于开发环境。以下成对的名称均取自官方 FabricMC/yarn mappings。
+    private static final Class<?> C_TEXT = resolveClass("net.minecraft.text.Text", "net.minecraft.class_2561");
+    // Text.literal(String)（yarn: method_43470）：所有消息发送的入口，必须带双候选解析，
+    // 否则生产环境下每条消息都会静默失败（命令执行后看不到任何回复）。
+    private static final java.lang.reflect.Method M_TEXT_LITERAL = findStatic(C_TEXT,
+            new String[]{"literal", "method_43470"}, String.class);
+
+    /** 构造 Text.literal(message)；反射失败时返回 null。 */
+    private static Object textLiteral(String message) {
+        if (M_TEXT_LITERAL == null) return null;
+        try {
+            return M_TEXT_LITERAL.invoke(null, message);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static java.lang.reflect.Method findStatic(Class<?> type, String[] names, Class<?>... params) {
+        if (type == null) return null;
+        for (String name : names) {
+            try {
+                java.lang.reflect.Method m = type.getMethod(name, params);
+                m.setAccessible(true);
+                return m;
+            } catch (NoSuchMethodException ignored) {
+            }
+        }
+        return null;
+    }
+
     private ReflectionSupport() {
+    }
+
+    /**
+     * 依次尝试 yarn 名与 intermediary 名加载 Minecraft 类。
+     * 开发环境（yarn 映射）命中前者，生产环境命中后者；都失败返回 null。
+     */
+    static Class<?> resolveClass(String yarnName, String intermediaryName) {
+        try {
+            return Class.forName(yarnName);
+        } catch (Throwable ignored) {
+        }
+        try {
+            return Class.forName(intermediaryName);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** 在类上按候选名称顺序查找无参方法，全部未命中返回 null。 */
+    static java.lang.reflect.Method findMethodNoArg(Class<?> type, String... names) {
+        for (String name : names) {
+            Method m = method(type, name);
+            if (m != null) return m;
+        }
+        return null;
+    }
+
+    private static Method findMethod(Class<?> type, String[] names, Class<?>... params) {
+        for (String name : names) {
+            Method m = method(type, name, params);
+            if (m != null) return m;
+        }
+        return null;
     }
 
     public static String playerName(Object player) {
         try {
-            Object profile = player.getClass().getMethod("getGameProfile").invoke(player);
+            Object profile = invokeFirst(player, findMethod(player.getClass(),
+                    new String[]{"getGameProfile", "method_7334"}));
             return String.valueOf(profile.getClass().getMethod("getName").invoke(profile));
         } catch (Exception e) {
             try {
-                Object name = player.getClass().getMethod("getName").invoke(player);
+                Object name = invokeFirst(player, findMethod(player.getClass(), new String[]{"getName"}));
                 return String.valueOf(name);
             } catch (Exception ignored) {
                 return "Unknown";
@@ -25,14 +90,16 @@ public final class ReflectionSupport {
 
     public static String playerIp(Object player) {
         try {
-            Object address = player.getClass().getMethod("getIp").invoke(player);
+            Object address = invokeFirst(player, findMethod(player.getClass(),
+                    new String[]{"getIp", "method_14209"}));
             return String.valueOf(address);
         } catch (Exception ignored) {
         }
         try {
-            Object networkHandler = field(player, "networkHandler");
-            Object connection = field(networkHandler, "connection");
-            Object address = connection.getClass().getMethod("getAddress").invoke(connection);
+            Object networkHandler = field(player, "networkHandler", "field_13987");
+            Object connection = field(networkHandler, "connection", "field_45013");
+            Object address = invokeFirst(connection, findMethod(connection.getClass(),
+                    new String[]{"getAddress", "method_10755"}));
             if (address instanceof InetSocketAddress) {
                 InetSocketAddress inet = (InetSocketAddress) address;
                 return inet.getAddress().getHostAddress();
@@ -44,13 +111,18 @@ public final class ReflectionSupport {
 
     public static void kick(Object player, String message) {
         try {
-            Class<?> textClass = Class.forName("net.minecraft.text.Text");
-            Object text = textClass.getMethod("literal", String.class).invoke(null, message);
-            Object networkHandler = field(player, "networkHandler");
-            Method disconnect = method(networkHandler.getClass(), "disconnect", textClass);
-            if (disconnect != null) {
-                disconnect.invoke(networkHandler, text);
-                return;
+            Object networkHandler = field(player, "networkHandler", "field_13987");
+            // 1.20.2+ 中 disconnect(Text) 位于 ServerCommonNetworkHandler（method_52396）
+            if (C_TEXT != null) {
+                Method disconnectText = findMethod(networkHandler.getClass(),
+                        new String[]{"disconnect", "method_52396"}, C_TEXT);
+                if (disconnectText != null) {
+                    Object text = textLiteral(message);
+                    if (text != null) {
+                        disconnectText.invoke(networkHandler, text);
+                        return;
+                    }
+                }
             }
             Method disconnectPacket = method(networkHandler.getClass(), "disconnect", String.class);
             if (disconnectPacket != null) {
@@ -62,8 +134,10 @@ public final class ReflectionSupport {
 
     public static Object findPlayer(Object server, String playerName) {
         try {
-            Object playerManager = server.getClass().getMethod("getPlayerManager").invoke(server);
-            return playerManager.getClass().getMethod("getPlayer", String.class).invoke(playerManager, playerName);
+            Object playerManager = invokeFirst(server, findMethod(server.getClass(),
+                    new String[]{"getPlayerManager", "method_3760"}));
+            return invokeFirst(playerManager, findMethod(playerManager.getClass(),
+                    new String[]{"getPlayer", "method_14566"}, String.class));
         } catch (Exception ignored) {
             return null;
         }
@@ -71,11 +145,11 @@ public final class ReflectionSupport {
 
     public static Object playerFromHandler(Object handler) {
         try {
-            return handler.getClass().getMethod("getPlayer").invoke(handler);
+            return invokeFirst(handler, findMethod(handler.getClass(), new String[]{"getPlayer"}));
         } catch (Exception ignored) {
         }
         try {
-            return field(handler, "player");
+            return field(handler, "player", "field_14140");
         } catch (Exception ignored) {
             return null;
         }
@@ -83,29 +157,31 @@ public final class ReflectionSupport {
 
     public static void broadcast(Object server, String message) {
         try {
-            Class<?> textClass = Class.forName("net.minecraft.text.Text");
-            Object text = textClass.getMethod("literal", String.class).invoke(null, translateAmpColorCodes(message));
+            Object text = textLiteral(translateAmpColorCodes(message));
+            if (text == null) return;
             for (Object player : onlinePlayers(server)) {
-                sendText(player, textClass, text);
+                sendText(player, text);
             }
-            Object commandSource = server.getClass().getMethod("getCommandSource").invoke(server);
-            sendText(commandSource, textClass, text);
+            Object commandSource = invokeFirst(server, findMethod(server.getClass(),
+                    new String[]{"getCommandSource", "method_3739"}));
+            sendText(commandSource, text);
         } catch (Exception ignored) {
         }
     }
 
     public static void sendMessage(Object source, String message) {
         try {
-            Class<?> textClass = Class.forName("net.minecraft.text.Text");
-            Object text = textClass.getMethod("literal", String.class).invoke(null, translateAmpColorCodes(message));
-            sendText(source, textClass, text);
+            Object text = textLiteral(translateAmpColorCodes(message));
+            if (text == null) return;
+            sendText(source, text);
         } catch (Exception ignored) {
         }
     }
 
     public static void sendConsoleMessage(Object server, String message) {
         try {
-            Object commandSource = server.getClass().getMethod("getCommandSource").invoke(server);
+            Object commandSource = invokeFirst(server, findMethod(server.getClass(),
+                    new String[]{"getCommandSource", "method_3739"}));
             sendMessage(commandSource, message);
         } catch (Exception ignored) {
         }
@@ -113,8 +189,15 @@ public final class ReflectionSupport {
 
     public static String chatMessageContent(Object message) {
         try {
-            Object content = message.getClass().getMethod("getContent").invoke(message);
-            return String.valueOf(content);
+            Object content = invokeFirst(message, findMethod(message.getClass(),
+                    new String[]{"getContent", "method_46291"}));
+            if (content != null) {
+                // SignedMessage.getContent() 返回 Text，再取其字符串形式
+                Object string = invokeFirst(content, findMethod(content.getClass(),
+                        new String[]{"getString"}));
+                if (string != null) return String.valueOf(string);
+                return String.valueOf(content);
+            }
         } catch (Exception ignored) {
         }
         try {
@@ -160,37 +243,48 @@ public final class ReflectionSupport {
         }, "Lengbanlist Scheduler").start();
     }
 
-    private static void sendText(Object target, Class<?> textClass, Object text) throws Exception {
-        Method send = method(target.getClass(), "sendMessage", textClass);
-        if (send != null) {
-            send.invoke(target, text);
-            return;
-        }
-        Method sendWithOverlay = method(target.getClass(), "sendMessage", textClass, boolean.class);
+    // 玩家实体：sendMessage(Text, boolean)（yarn: PlayerEntity#method_7353）
+    // 命令源（控制台/玩家通用）：sendMessage(Text)（yarn: ServerCommandSource#method_45068）
+    private static void sendText(Object target, Object text) throws Exception {
+        if (target == null || C_TEXT == null) return;
+        Method sendWithOverlay = findMethod(target.getClass(),
+                new String[]{"sendMessage", "method_7353"}, C_TEXT, boolean.class);
         if (sendWithOverlay != null) {
             sendWithOverlay.invoke(target, text, false);
+            return;
+        }
+        Method send = findMethod(target.getClass(), new String[]{"sendMessage", "method_45068"}, C_TEXT);
+        if (send != null) {
+            send.invoke(target, text);
         }
     }
 
     public static boolean hasPermission(Object source, int level) {
         try {
-            Method hasPermissionLevel = method(source.getClass(), "hasPermissionLevel", int.class);
+            Method hasPermissionLevel = findMethod(source.getClass(),
+                    new String[]{"hasPermissionLevel"}, int.class);
             if (hasPermissionLevel != null) {
                 return Boolean.TRUE.equals(hasPermissionLevel.invoke(source, level));
             }
         } catch (Exception ignored) {
         }
+        // ServerCommandSource.level 字段（field_9815）：等价于 hasPermissionLevel(level >= x)
         try {
-            Object entity = source.getClass().getMethod("getEntity").invoke(source);
-            if (entity == null) return true;
-            Method hasPermissionLevel = method(entity.getClass(), "hasPermissionLevel", int.class);
-            if (hasPermissionLevel != null) {
-                return Boolean.TRUE.equals(hasPermissionLevel.invoke(entity, level));
+            Object lvl = field(source, "level", "field_9815");
+            if (lvl instanceof Integer) {
+                return (Integer) lvl >= level;
             }
         } catch (Exception ignored) {
         }
         try {
-            source.getClass().getMethod("getEntity").invoke(source);
+            Object entity = invokeFirst(source, findMethod(source.getClass(),
+                    new String[]{"getEntity", "method_9228"}));
+            if (entity == null) return true;
+            Method hasPermissionLevel = findMethod(entity.getClass(),
+                    new String[]{"hasPermissionLevel", "method_5687"}, int.class);
+            if (hasPermissionLevel != null) {
+                return Boolean.TRUE.equals(hasPermissionLevel.invoke(entity, level));
+            }
         } catch (Exception ignored) {
             return true;
         }
@@ -203,8 +297,10 @@ public final class ReflectionSupport {
 
     public static int maxPlayers(Object server) {
         try {
-            Object playerManager = server.getClass().getMethod("getPlayerManager").invoke(server);
-            return (Integer) playerManager.getClass().getMethod("getMaxPlayerCount").invoke(playerManager);
+            Object playerManager = invokeFirst(server, findMethod(server.getClass(),
+                    new String[]{"getPlayerManager", "method_3760"}));
+            return (Integer) invokeFirst(playerManager, findMethod(playerManager.getClass(),
+                    new String[]{"getMaxPlayerCount", "method_14592"}));
         } catch (Exception ignored) {
             return 0;
         }
@@ -215,22 +311,34 @@ public final class ReflectionSupport {
     private static volatile Class<?> cachedPlayerManagerClass;
     private static final Object reflectLock = new Object();
 
-    private static Method findAndCache(Method cached, Class<?> owner, String name) {
+    /** 调用第一个非 null 的方法并返回结果；method 为 null 或调用失败时返回 null。 */
+    private static Object invokeFirst(Object target, Method m) {
+        if (m == null) return null;
+        try {
+            return m.invoke(target);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static Method findAndCache(Method cached, Class<?> owner, String... names) {
         if (cached != null) return cached;
         synchronized (reflectLock) {
             if (cached != null) return cached;
-            try {
-                return owner.getMethod(name);
-            } catch (NoSuchMethodException e) {
-                return null;
+            for (String name : names) {
+                try {
+                    return owner.getMethod(name);
+                } catch (NoSuchMethodException ignored) {
+                }
             }
+            return null;
         }
     }
 
     public static Collection<?> onlinePlayers(Object server) {
         try {
             Class<? extends Object> serverClass = server.getClass();
-            Method getPlayerManager = findAndCache(cachedGetPlayerManager, serverClass, "getPlayerManager");
+            Method getPlayerManager = findAndCache(cachedGetPlayerManager, serverClass, "getPlayerManager", "method_3760");
             if (getPlayerManager == null) return java.util.Collections.emptyList();
             Object playerManager = getPlayerManager.invoke(server);
             if (playerManager == null) return java.util.Collections.emptyList();
@@ -243,7 +351,7 @@ public final class ReflectionSupport {
                     }
                 }
             }
-            Method getPlayerList = findAndCache(cachedGetPlayerList, pmClass, "getPlayerList");
+            Method getPlayerList = findAndCache(cachedGetPlayerList, pmClass, "getPlayerList", "method_14571");
             if (getPlayerList == null) return java.util.Collections.emptyList();
             Object players = getPlayerList.invoke(playerManager);
             return (Collection<?>) players;
@@ -253,19 +361,32 @@ public final class ReflectionSupport {
     }
 
     public static Object field(Object target, String name) throws Exception {
+        return field(target, new String[]{name});
+    }
+
+    /** 沿类层次依次按候选名称（yarn 名/intermediary 名）查找字段。 */
+    public static Object field(Object target, String... names) throws Exception {
         Class<?> type = target.getClass();
         while (type != null) {
+            for (String name : names) {
+                try {
+                    Field field = type.getDeclaredField(name);
+                    field.setAccessible(true);
+                    return field.get(target);
+                } catch (NoSuchFieldException ignored) {
+                }
+            }
+            type = type.getSuperclass();
+        }
+        for (String name : names) {
             try {
-                Field field = type.getDeclaredField(name);
+                Field field = target.getClass().getField(name);
                 field.setAccessible(true);
                 return field.get(target);
             } catch (NoSuchFieldException ignored) {
-                type = type.getSuperclass();
             }
         }
-        Field field = target.getClass().getField(name);
-        field.setAccessible(true);
-        return field.get(target);
+        throw new NoSuchFieldException(String.join("/", names));
     }
 
     private static Method method(Class<?> type, String name, Class<?>... args) {

@@ -24,6 +24,7 @@ public final class FabricCommandBridge {
 
     // 反射目标缓存：避免每次命令执行重复 Class.forName / Method lookup
     private static final java.lang.reflect.Method M_SOURCE_GET_NAME;
+    private static final Class<?> C_SOURCE_CLASS;
     private static final Class<?> C_STRING_ARG_TYPE;
     private static final java.lang.reflect.Method M_GET_STRING;
     private static final Class<?> C_COMMAND_CONTEXT;
@@ -33,6 +34,8 @@ public final class FabricCommandBridge {
             C_STRING_ARG_TYPE = Class.forName("com.mojang.brigadier.arguments.StringArgumentType");
             C_COMMAND_CONTEXT = Class.forName("com.mojang.brigadier.context.CommandContext");
             M_GET_STRING = C_STRING_ARG_TYPE.getMethod("getString", C_COMMAND_CONTEXT, String.class);
+            C_SOURCE_CLASS = ReflectionSupport.resolveClass(
+                    "net.minecraft.server.command.ServerCommandSource", "net.minecraft.class_2168");
             M_SOURCE_GET_NAME = resolveSourceGetName();
         } catch (Throwable t) {
             throw new ExceptionInInitializerError(t);
@@ -40,15 +43,13 @@ public final class FabricCommandBridge {
     }
 
     private static java.lang.reflect.Method resolveSourceGetName() {
-        // 优先用 Entity.getName()（玩家），否则用 Object.getName（CommandSource）
+        // ServerCommandSource.getName() 返回 String；生产环境类名为 intermediary（class_2168），
+        // 方法名为 method_9214，需同时尝试 yarn 名与 intermediary 名。
+        if (C_SOURCE_CLASS == null) return null;
         try {
-            return Class.forName("net.minecraft.entity.Entity").getMethod("getName");
+            return ReflectionSupport.findMethodNoArg(C_SOURCE_CLASS, "getName", "method_9214");
         } catch (Throwable ignored) {
-            try {
-                return Class.forName("net.minecraft.server.command.ServerCommandSource").getMethod("getName");
-            } catch (Throwable ignored2) {
-                return null;
-            }
+            return null;
         }
     }
 
@@ -90,15 +91,20 @@ public final class FabricCommandBridge {
 
     private static void registerLiteral(FabricLengbanlist plugin, Object dispatcher, String command) {
         try {
-            Class<?> commandManager = Class.forName("net.minecraft.server.command.CommandManager");
+            // 直接使用 Brigadier 原生构建器：CommandManager.literal/argument 只是其薄封装，
+            // 且 com.mojang.brigadier 在生产环境不做混淆，反射调用在开发/正式环境均可用。
+            // （net.minecraft.server.command.CommandManager 在正式服务端是 intermediary 名
+            //   net.minecraft.class_2170，按 yarn 名查找必然抛 ClassNotFoundException。）
             Class<?> commandInterface = Class.forName("com.mojang.brigadier.Command");
-            Object literal = commandManager.getMethod("literal", String.class).invoke(null, command);
+            Class<?> literalBuilderCls = Class.forName("com.mojang.brigadier.builder.LiteralArgumentBuilder");
+            Object literal = literalBuilderCls.getMethod("literal", String.class).invoke(null, command);
             Object noArgExecutor = executor(plugin, command, false);
             literal = literal.getClass().getMethod("executes", commandInterface).invoke(literal, noArgExecutor);
 
             Class<?> stringArgumentType = Class.forName("com.mojang.brigadier.arguments.StringArgumentType");
             Object greedy = stringArgumentType.getMethod("greedyString").invoke(null);
-            Object argument = commandManager.getMethod("argument", String.class, Class.forName("com.mojang.brigadier.arguments.ArgumentType")).invoke(null, "args", greedy);
+            Class<?> requiredArgBuilderCls = Class.forName("com.mojang.brigadier.builder.RequiredArgumentBuilder");
+            Object argument = requiredArgBuilderCls.getMethod("argument", String.class, Class.forName("com.mojang.brigadier.arguments.ArgumentType")).invoke(null, "args", greedy);
             Object argExecutor = executor(plugin, command, true);
             argument = argument.getClass().getMethod("executes", commandInterface).invoke(argument, argExecutor);
             literal = literal.getClass().getMethod("then", Class.forName("com.mojang.brigadier.builder.ArgumentBuilder")).invoke(literal, argument);
@@ -461,9 +467,8 @@ public final class FabricCommandBridge {
 
     // 仅当 source 是玩家时返回其名字，否则返回 null。
     private static String sourcePlayerName(Object source) {
+        if (C_SOURCE_CLASS == null || !C_SOURCE_CLASS.isInstance(source)) return null;
         try {
-            Class<?> entityCls = Class.forName("net.minecraft.entity.Entity");
-            if (!entityCls.isInstance(source)) return null;
             if (M_SOURCE_GET_NAME == null) return null;
             Object nameObj = M_SOURCE_GET_NAME.invoke(source);
             return nameObj == null ? null : String.valueOf(nameObj);
@@ -628,6 +633,9 @@ public final class FabricCommandBridge {
 
     private static String sourceName(Object source) {
         try {
+            if (C_SOURCE_CLASS != null && C_SOURCE_CLASS.isInstance(source) && M_SOURCE_GET_NAME != null) {
+                return String.valueOf(M_SOURCE_GET_NAME.invoke(source));
+            }
             return String.valueOf(source.getClass().getMethod("getName").invoke(source));
         } catch (Exception ignored) {
             return "Console";

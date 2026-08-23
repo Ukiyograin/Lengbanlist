@@ -2,7 +2,7 @@
 # Lengbanlist 自定义模型示例文件
 # ============================================================
 # 使用方法：
-# 1. 将此文件复制到 plugins/Lengbanlist/models/ 目录下
+# 1. 将此文件复制到插件数据目录的 models/ 子目录下（Bukkit 为 plugins/Lengbanlist/models/，Fabric 为 config/Lengbanlist/models/）
 # 2. 重命名为你喜欢的名字（如 mymodel.yml）
 # 3. 修改下面的 name 和 messages 内容
 # 4. 执行 /lban reload 或重启服务器即可加载

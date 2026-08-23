@@ -73,7 +73,7 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         if (!eulaOk) {
             logger.severe("==================================================");
             logger.severe("插件启用被终止：您需要同意EULA才能使用本插件！");
-            logger.severe("请编辑 plugins/Lengbanlist/eula.yml 文件");
+            logger.severe("请编辑 config/Lengbanlist/eula.yml 文件");
             logger.severe("==================================================");
             return;
         }
@@ -124,7 +124,7 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             return;
         }
         try {
-            logger.info(prefix() + "§f原神§2正在加载");
+            logger.info(plain(prefix() + "§f原神§2正在加载"));
             FabricCommandBridge.register(this);
             FabricJoinBridge.register(this);
             FabricChatBridge.register(this);
@@ -134,7 +134,7 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
                 updateCheckThread = new Thread(GitHubUpdateChecker::checkUpdate, "Lengbanlist Update Check");
                 updateCheckThread.start();
             }
-            logger.info(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName());
+            logger.info(plain(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName()));
         } catch (Exception e) {
             logger.severe("命令或事件注册失败，插件将停止启用: " + e.getMessage());
             e.printStackTrace();
@@ -536,6 +536,11 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             logger.severe("Web 服务器重载失败: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    // 剥离 § 颜色码：JUL 控制台不渲染旧版颜色代码，直接输出会产生乱码字符。
+    private static String plain(String message) {
+        return message == null ? null : message.replaceAll("§.", "");
     }
 
     @Override

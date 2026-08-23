@@ -70,8 +70,8 @@
 # 6. 爱发电赞助用户可获得 BETA 测试权限及更多福利。
 # 6. Afdian sponsors gain access to BETA features and additional benefits.
 
-# 7. 若插件无法加载，请删除 plugins/Lengbanlist 文件夹后重启服务器。
-# 7. If the plugin fails to load, delete the plugins/Lengbanlist folder and restart the server.
+# 7. 若插件无法加载，请删除插件数据目录（Bukkit 为 plugins/Lengbanlist，Fabric 为 config/Lengbanlist）后重启服务器。
+# 7. If the plugin fails to load, delete the plugin data folder (Bukkit: plugins/Lengbanlist, Fabric: config/Lengbanlist) and restart the server.
 
 # ================================================
 # 五、开发者信息 / Developer Information
