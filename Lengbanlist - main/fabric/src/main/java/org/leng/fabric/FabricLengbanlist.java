@@ -161,10 +161,7 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         }
     }
 
-    /**
-     * 仅释放并加载 eula.yml，用于在 EULA 未同意时阻止其他配置文件被写出。
-     * @return EULA 是否已被同意
-     */
+    // 仅释放并加载 eula.yml，用于在 EULA 未同意时阻止其他配置文件被写出。
     private boolean loadEulaConfig() throws IOException {
         copyDefault("eula.yml");
         try (InputStream input = Files.newInputStream(new File(dataFolder, "eula.yml").toPath())) {
@@ -194,15 +191,12 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         if (!text.contains("config-version:")) {
             if (!text.endsWith("\n")) text += "\n";
             text += "\n# 配置版本\nconfig-version: 1\n";
-            atomicWriteBytes(path, text.getBytes("UTF-8"));
+            atomicWrite(path, text.getBytes("UTF-8"));
         }
     }
 
-    /**
-     * 原子写入：先写到同目录下的临时文件，再原子替换目标文件，避免半写状态损坏配置。
-     * 不支持 ATOMIC_MOVE 的文件系统回退为普通写入。
-     */
-    private void atomicWriteBytes(Path target, byte[] data) throws IOException {
+    // 原子写入：先写到临时文件，再原子替换目标文件；不支持 ATOMIC_MOVE 的文件系统回退为普通写入。
+    private void atomicWrite(Path target, byte[] data) throws IOException {
         Path dir = target.getParent();
         if (dir == null) dir = target.toAbsolutePath().getParent();
         Path tmp = Files.createTempFile(dir, target.getFileName().toString() + ".", ".tmp");
@@ -219,19 +213,7 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     }
 
     private void atomicWriteLines(Path target, java.util.List<String> lines) throws IOException {
-        Path dir = target.getParent();
-        if (dir == null) dir = target.toAbsolutePath().getParent();
-        Path tmp = Files.createTempFile(dir, target.getFileName().toString() + ".", ".tmp");
-        try {
-            Files.write(tmp, lines, StandardCharsets.UTF_8);
-            try {
-                Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (java.nio.file.AtomicMoveNotSupportedException amns) {
-                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-        } finally {
-            try { Files.deleteIfExists(tmp); } catch (IOException ignored) {}
-        }
+        atomicWrite(target, lines.stream().collect(java.util.stream.Collectors.joining("\n", "", "\n")).getBytes(StandardCharsets.UTF_8));
     }
 
     private void startMetrics() {

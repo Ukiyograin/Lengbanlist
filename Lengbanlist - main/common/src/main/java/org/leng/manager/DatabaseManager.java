@@ -188,7 +188,6 @@ public class DatabaseManager {
         createIndexIfMissing(table, "idx_" + table + "_target_active", (table.equals("bans") ? "target" : "ip") + ", active");
     }
 
-    /** 审计哈希链迁移：为 audit_log 补 prev_hash 列并按 id 升序回填整条 SHA-256 链。 */
     private void migrateToV4() throws SQLException {
         addColumnIfMissing("audit_log", "prev_hash", varcharType(64) + " NOT NULL DEFAULT ''");
         if (mysql) {
@@ -287,11 +286,6 @@ public class DatabaseManager {
             logSql(e);
         }
         return players;
-    }
-
-
-    public WriteResult addBan(BanEntry entry) {
-        return replaceActiveBan(entry);
     }
 
 
@@ -419,11 +413,6 @@ public class DatabaseManager {
 
     public boolean isHealthy() {
         return dataSource != null && !dataSource.isClosed();
-    }
-
-
-    public WriteResult addIpBan(BanIpEntry entry) {
-        return replaceActiveIpBan(entry);
     }
 
 
@@ -863,7 +852,7 @@ public class DatabaseManager {
         return entries;
     }
 
-    /** 查询指定操作人在指定时间范围（含两端）内的审计记录，按时间升序（回滚按原顺序执行）。 */
+    // 查询指定操作人在指定时间范围（含两端）内的审计记录，按时间升序（回滚按原顺序执行）。
     public List<AuditEntry> getAuditLogsByActorInRange(String actor, long from, long to) {
         List<AuditEntry> entries = new ArrayList<>();
         if (actor == null || actor.trim().isEmpty()) {
@@ -897,12 +886,6 @@ public class DatabaseManager {
     }
 
 
-    public void cleanupOldBans(int retentionDays) {
-        long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
-        executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
-        executeUpdate("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff);
-    }
-
     public void cleanupOldData(int retentionDays) {
         long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
         executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
@@ -916,8 +899,8 @@ public class DatabaseManager {
 
     public void deactivateExpiredBans() {
         long now = System.currentTimeMillis();
-        executeUpdate("UPDATE bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now);
-        executeUpdate("UPDATE ip_bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now);
+        executeUpdate("UPDATE bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != 9223372036854775807", now);
+        executeUpdate("UPDATE ip_bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != 9223372036854775807", now);
     }
 
     private MuteEntry readMute(ResultSet rs) throws SQLException {

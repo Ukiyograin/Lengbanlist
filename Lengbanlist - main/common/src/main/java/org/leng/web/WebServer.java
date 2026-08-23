@@ -23,7 +23,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,15 +48,21 @@ public class WebServer {
     private final Gson gson = new Gson();
     private HttpServer server;
     private AuthManager authManager;
+    private ExecutorService executor;
     private boolean running;
-    /**
-     * 表示 Web 服务器因不安全的配置被拒绝启动。
-     * 与 running 独立：running 表示服务器当前已绑定；该字段表示上一次拒绝原因。
-     */
     private String disabledReason;
+    private final RateLimiter rateLimiter = new RateLimiter();
+    private final java.util.Map<String, byte[]> staticResourceCache = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ScheduledExecutorService cleanupScheduler =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "Lengbanlist Web Cleanup");
+                t.setDaemon(true);
+                return t;
+            });
 
     public WebServer(LengbanlistPlatform plugin) {
         this.plugin = plugin;
+        cleanupScheduler.scheduleAtFixedRate(rateLimiter::cleanup, 60, 60, TimeUnit.SECONDS);
     }
 
     public boolean start() {
@@ -68,7 +74,7 @@ public class WebServer {
             String username = plugin.getConfigString("web.admin-username", "admin");
             String password = plugin.getConfigString("web.admin-password", "");
 
-            // P0-1: 如果 JWT 密钥缺失或为空，使用 SecureRandom 生成 48 字节强随机密钥，
+            // 如果 JWT 密钥缺失或为空，使用 SecureRandom 生成 48 字节强随机密钥，
             // 并持久化回配置文件，保证重启后 JWT 令牌仍然有效。
             if (secret == null || secret.trim().isEmpty()) {
                 secret = generateRandomJwtSecret();
@@ -82,7 +88,7 @@ public class WebServer {
                 }
             }
 
-            // P1-5: 监听地址非环回时给出显著警告，明文 HTTP 在网络上存在凭证泄露风险。
+            // 监听地址非环回时给出显著警告，明文 HTTP 在网络上存在凭证泄露风险。
             if (!isLoopbackHost(host)) {
                 plugin.getLogger().warning(
                         "============================================================");
@@ -93,7 +99,7 @@ public class WebServer {
                         "============================================================");
             }
 
-            // P0-2: 校验密码，若缺失/默认/为空则拒绝启动 Web 服务器（不抛出异常）。
+            // 校验密码，若缺失/默认/为空则拒绝启动 Web 服务器（不抛出异常）。
             if (!isAdminPasswordSecure(password)) {
                 disabledReason = "web-disabled-due-to-insecure-config";
                 plugin.getLogger().severe(
@@ -112,7 +118,8 @@ public class WebServer {
 
             authManager = new AuthManager(secret, username, password);
             server = HttpServer.create(new InetSocketAddress(host, port), 64);
-            server.setExecutor(Executors.newCachedThreadPool());
+            executor = Executors.newCachedThreadPool();
+            server.setExecutor(executor);
 
             server.createContext("/api/login", this::handleLogin);
             server.createContext("/api/logout", this::handleLogout);
@@ -152,19 +159,12 @@ public class WebServer {
         }
     }
 
-    /**
-     * P0-1: 生成 48 字节（384 位）的加密学随机密钥，并使用 URL-safe Base64（无填充）编码，
-     * 提供足够的熵来抵御 HS256 暴力破解。
-     */
     private String generateRandomJwtSecret() {
         byte[] randomBytes = new byte[48];
         new SecureRandom().nextBytes(randomBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
-    /**
-     * P1-5: 判断给定 host 是否为环回地址。
-     */
     private boolean isLoopbackHost(String host) {
         if (host == null) return false;
         String h = host.trim().toLowerCase();
@@ -178,12 +178,22 @@ public class WebServer {
             } catch (Exception e) {
                 plugin.getLogger().warning("Web管理面板关闭时出现异常: " + e.getMessage());
             }
-            // P3-18: 显式清空 server 引用，避免 stop()/start() 周期中残留旧实例。
-            // 同时清空 insecure-config 拒绝状态，确保管理员修正配置后下次启动可正常通过校验。
             server = null;
             running = false;
             disabledReason = null;
             plugin.getLogger().info("Web管理面板已关闭");
+        }
+        if (executor != null) {
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+            executor = null;
         }
     }
 
@@ -201,10 +211,6 @@ public class WebServer {
         return true;
     }
 
-    /**
-     * P0-2: 检查 admin 密码是否安全。缺失、空、命中已知默认值（admin123/changeme/password 等）
-     * 均视为不安全，必须拒绝启动 Web 服务器。
-     */
     private boolean isAdminPasswordSecure(String password) {
         if (password == null) return false;
         String trimmed = password.trim();
@@ -218,9 +224,7 @@ public class WebServer {
         return true;
     }
 
-    /**
-     * P0-2: 公开已知的弱密码黑名单（仅包含 fix 列表中明确指出的三项，避免误伤合法密码）。
-     */
+    // 公开已知的弱密码黑名单（避免误伤合法密码）
     private static final java.util.Set<String> DEFAULT_INSECURE_PASSWORDS = java.util.Set.of(
             "admin123", "changeme", "password");
 
@@ -360,8 +364,6 @@ public class WebServer {
         }
     }
 
-    private final RateLimiter rateLimiter = new RateLimiter();
-
     private boolean checkRateLimit(HttpExchange exchange) {
         String ip = exchange.getRemoteAddress().getAddress().getHostAddress();
         if (rateLimiter.isRateLimited(ip)) {
@@ -370,7 +372,6 @@ public class WebServer {
         }
         return true;
     }
-
 
     private String extractToken(HttpExchange exchange) {
         String auth = exchange.getRequestHeaders().getFirst("Authorization");
@@ -399,11 +400,7 @@ public class WebServer {
             }
         });
         try {
-            // P2-11: 不同平台对 scheduled.cancel() 的语义差异较大：
-            // - Bukkit 调度器/BukkitTask.cancel() 会从调度表中移除任务，但如果任务已开始执行则不会中断；
-            // - Fabric 等不实现取消的平台返回 NOOP，cancel() 实际是空操作，任务仍会执行到完成；
-            // - 即使 cancel 生效，task 内部的副作用（数据库写入、广播、状态修改等）已经发生，无法回滚。
-            // 因此调用方不应假设 cancel 之后无副作用；此处仅用于让 client 尽早超时返回，避免重试造成重复扣减。
+            // 不同平台对 scheduled.cancel() 语义差异较大，此处仅让客户端尽早超时返回，不假设取消可回滚副作用
             if (!latch.await(5, TimeUnit.SECONDS)) {
                 scheduled.cancel();
                 sendError(exchange, 504, "主线程繁忙，操作可能已在后台执行，请稍后在列表中确认结果，不要重复提交");
@@ -457,7 +454,6 @@ public class WebServer {
         if (origin == null) {
             return;
         }
-        // P1-3: 读取白名单 web.allowed-origins；仅在 Origin 精确匹配白名单项时返回 CORS 头。
         List<String> allowedOrigins = plugin.getConfigStringList("web.allowed-origins");
         boolean originAllowed = false;
         for (String allowed : allowedOrigins) {
@@ -467,12 +463,9 @@ public class WebServer {
             }
         }
         if (!originAllowed) {
-            // 不匹配白名单 → 不发送 Access-Control-Allow-Origin（浏览器将阻止跨域请求）。
-            // 仍需设置 Vary 头以防缓存混淆（规范要求）。
             exchange.getResponseHeaders().set("Vary", "Origin");
             return;
         }
-        // 命中白名单 → 返回 CORS 头（保留原有同源分支以防配置为空但仍是同源请求）。
         String host = exchange.getRequestHeaders().getFirst("Host");
         if (host != null && (origin.equalsIgnoreCase("http://" + host) || origin.equalsIgnoreCase("https://" + host))) {
             exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
@@ -480,7 +473,6 @@ public class WebServer {
             exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
             return;
         }
-        // 白名单匹配（非同源） → 返回 CORS 头
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -491,7 +483,6 @@ public class WebServer {
         try {
             exchange.sendResponseHeaders(204, -1);
         } catch (IOException e) {
-            // P2-10: 不再静默吞掉 CORS 预检响应失败；记录异常栈便于排查客户端连通性问题。
             plugin.getLogger().warning("CORS 预检响应失败 (OPTIONS " + exchange.getRequestURI() + "): " + e.getMessage());
         } finally {
             exchange.close();
@@ -518,14 +509,11 @@ public class WebServer {
     private Map<String, String> parseQuery(String query) {
         Map<String, String> params = new HashMap<>();
         if (query == null || query.isEmpty()) return params;
+        java.nio.charset.Charset utf8 = StandardCharsets.UTF_8;
         for (String param : query.split("&")) {
             String[] pair = param.split("=", 2);
-            try {
-                params.put(URLDecoder.decode(pair[0], "UTF-8"),
-                        pair.length > 1 ? URLDecoder.decode(pair[1], "UTF-8") : "");
-            } catch (UnsupportedEncodingException e) {
-
-            }
+            params.put(URLDecoder.decode(pair[0], utf8),
+                    pair.length > 1 ? URLDecoder.decode(pair[1], utf8) : "");
         }
         return params;
     }
@@ -1257,10 +1245,21 @@ public class WebServer {
                 return;
             }
 
-            java.io.InputStream stream = plugin.getResourceStream(resourcePath);
-            if (stream != null) {
-                byte[] bytes = readAllBytes(stream);
+            byte[] bytes = staticResourceCache.get(resourcePath);
+            boolean cacheMiss = bytes == null;
+            if (cacheMiss) {
+                try (InputStream stream = plugin.getResourceStream(resourcePath)) {
+                    if (stream != null) {
+                        bytes = readAllBytes(stream);
+                        staticResourceCache.put(resourcePath, bytes);
+                    }
+                } catch (IOException e) {
+                    plugin.getLogger().warning("读取静态资源失败 " + resourcePath + ": " + e.getMessage());
+                }
+            }
+            if (bytes != null && bytes.length > 0) {
                 exchange.getResponseHeaders().set("Content-Type", getMimeType(tail));
+                exchange.getResponseHeaders().set("Cache-Control", "public, max-age=300");
                 exchange.sendResponseHeaders(200, bytes.length);
                 exchange.getResponseBody().write(bytes);
                 exchange.close();

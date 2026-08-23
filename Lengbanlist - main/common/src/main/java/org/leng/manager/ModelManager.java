@@ -9,17 +9,15 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ModelManager {
     private static ModelManager instance;
-    // 共享 map，跨线程访问（reload、switchModel、自定义模型加载）必须用线程安全实现，
-    // 否则在并发切换/重载时可能出现 ConcurrentModificationException 或 HashMap 内部损坏。
     private static final Map<String, Model> models = new ConcurrentHashMap<>();
     private static volatile Model currentModel;
-    private boolean enabled = true;
 
     public static ModelManager getInstance() {
         if (instance == null) {
@@ -49,9 +47,6 @@ public class ModelManager {
     }
 
     private void loadCustomModels() {
-        // 重新加载前，先移除上一次加载的自定义模型（内置模型会重新注册，无需清理）
-        // ConcurrentHashMap 的 values 视图不支持 removeIf，改为先收集待删除的 key 再移除，
-        // 避免在并发迭代时破坏视图或抛 UnsupportedOperationException。
         List<String> customKeys = new ArrayList<>();
         for (Map.Entry<String, Model> entry : models.entrySet()) {
             if (entry.getValue() instanceof CustomModel) {
@@ -71,6 +66,7 @@ public class ModelManager {
         if (yamlFiles == null || yamlFiles.length == 0) {
             return;
         }
+        Arrays.sort(yamlFiles, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
 
         for (File file : yamlFiles) {
             try {
@@ -89,7 +85,6 @@ public class ModelManager {
 
                 String lowerName = modelName.toLowerCase();
 
-                // 内置模型优先：名称冲突则跳过自定义模型
                 if (models.containsKey(lowerName)) {
                     PlatformHolder.get().getLogger().warning("跳过自定义模型 " + modelName + "（来自 " + file.getName() + "）：与内置模型 " + lowerName + " 冲突，内置模型优先");
                     continue;
@@ -152,14 +147,6 @@ public class ModelManager {
     }
 
     public static String getModelMaterial(String modelName) {
-        return PlatformHolder.get().getConfigString("models." + modelName.toLowerCase() + ".material", "PAPER");
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
+        return getInstance().getModelMaterialName(modelName);
     }
 }

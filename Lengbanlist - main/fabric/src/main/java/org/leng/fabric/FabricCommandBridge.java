@@ -22,6 +22,36 @@ public final class FabricCommandBridge {
             "warnmsg", "getip", "sc"
     };
 
+    // 反射目标缓存：避免每次命令执行重复 Class.forName / Method lookup
+    private static final java.lang.reflect.Method M_SOURCE_GET_NAME;
+    private static final Class<?> C_STRING_ARG_TYPE;
+    private static final java.lang.reflect.Method M_GET_STRING;
+    private static final Class<?> C_COMMAND_CONTEXT;
+
+    static {
+        try {
+            C_STRING_ARG_TYPE = Class.forName("com.mojang.brigadier.arguments.StringArgumentType");
+            C_COMMAND_CONTEXT = Class.forName("com.mojang.brigadier.context.CommandContext");
+            M_GET_STRING = C_STRING_ARG_TYPE.getMethod("getString", C_COMMAND_CONTEXT, String.class);
+            M_SOURCE_GET_NAME = resolveSourceGetName();
+        } catch (Throwable t) {
+            throw new ExceptionInInitializerError(t);
+        }
+    }
+
+    private static java.lang.reflect.Method resolveSourceGetName() {
+        // 优先用 Entity.getName()（玩家），否则用 Object.getName（CommandSource）
+        try {
+            return Class.forName("net.minecraft.entity.Entity").getMethod("getName");
+        } catch (Throwable ignored) {
+            try {
+                return Class.forName("net.minecraft.server.command.ServerCommandSource").getMethod("getName");
+            } catch (Throwable ignored2) {
+                return null;
+            }
+        }
+    }
+
     private FabricCommandBridge() {
     }
 
@@ -48,7 +78,6 @@ public final class FabricCommandBridge {
 
     private static void registerCommands(FabricLengbanlist plugin, Object dispatcher) {
         for (String command : COMMANDS) {
-            // lban / info / admin 等核心命令不受 features.<name> 控制，始终注册；其余命令按功能开关决定是否注册。
             if (isCoreCommand(command) || plugin.isFeatureEnabled(command)) {
                 registerLiteral(plugin, dispatcher, command);
             }
@@ -101,19 +130,16 @@ public final class FabricCommandBridge {
                 FabricCommandBridge.class.getClassLoader(),
                 new Class[]{commandInterface},
                 (proxy, method, args) -> {
-                    if ("run".equals(method.getName())) {
-                        Object context = args[0];
-                        Object source = context.getClass().getMethod("getSource").invoke(context);
-                        String[] parsedArgs = new String[0];
-                        if (withArgs) {
-                            Class<?> stringArgumentType = Class.forName("com.mojang.brigadier.arguments.StringArgumentType");
-                            String raw = String.valueOf(stringArgumentType.getMethod("getString", Class.forName("com.mojang.brigadier.context.CommandContext"), String.class).invoke(null, context, "args"));
-                            parsedArgs = raw.trim().isEmpty() ? new String[0] : raw.trim().split("\\s+");
-                        }
-                        execute(plugin, source, command, parsedArgs);
-                        return 1;
+                    if (!"run".equals(method.getName())) return 0;
+                    Object context = args[0];
+                    Object source = context.getClass().getMethod("getSource").invoke(context);
+                    String[] parsedArgs = new String[0];
+                    if (withArgs) {
+                        String raw = String.valueOf(M_GET_STRING.invoke(null, context, "args"));
+                        parsedArgs = raw.trim().isEmpty() ? new String[0] : raw.trim().split("\\s+");
                     }
-                    return 0;
+                    execute(plugin, source, command, parsedArgs);
+                    return 1;
                 });
     }
 
@@ -121,7 +147,6 @@ public final class FabricCommandBridge {
         MessageSink sink = message -> ReflectionSupport.sendMessage(source, message);
         String name = sourceName(source);
         Model model = plugin.getModelManager().getCurrentModel();
-        // 用于 -s 静默标记的临时变量；各 case 在需要时通过 isLeadingSilent/stripLeadingSilent 配对设置。
         boolean silent = false;
         if ("lban".equalsIgnoreCase(commandName)) {
             if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
@@ -345,7 +370,6 @@ public final class FabricCommandBridge {
                 break;
             case "kick":
                 if (!requirePermission(source, sink)) return;
-                // 原因改为可选；不填时给默认提示，保持行为与 main V1.9.9 一致
                 if (args.length < 1) return;
                 plugin.kickPlayerIfOnline(args[0], args.length > 1 ? String.join(" ", Arrays.copyOfRange(args, 1, args.length)) : "Kicked");
                 break;
@@ -372,7 +396,6 @@ public final class FabricCommandBridge {
                 break;
             case "getip":
                 if (!requirePermission(source, sink)) return;
-                // 玩家名可选：不填时默认查自己（仅当 source 是玩家时可用）
                 if (args.length < 1) {
                     String self = sourcePlayerName(source);
                     if (self == null) {
@@ -422,16 +445,11 @@ public final class FabricCommandBridge {
         }
     }
 
-    /**
-     * 若 args 首项是 "-s"，返回 true；否则 false。
-     * 与 stripLeadingSilent() 配对使用：调用方应先调用本方法拿到 silent 标志，
-     * 再把 args = stripLeadingSilent(args) 替换本地变量。
-     */
+    // 若 args 首项是 "-s"，返回 true；否则 false。与 stripLeadingSilent() 配对使用。
     private static boolean isLeadingSilent(String[] args) {
         return args.length > 0 && "-s".equalsIgnoreCase(args[0]);
     }
 
-    /** 取出首位 -s 后的剩余参数（若首项不是 -s 则原样返回）。 */
     private static String[] stripLeadingSilent(String[] args) {
         if (isLeadingSilent(args)) {
             String[] trimmed = new String[args.length - 1];
@@ -441,13 +459,13 @@ public final class FabricCommandBridge {
         return args;
     }
 
-    /** 仅当 source 是玩家时返回其名字，否则返回 null。 */
+    // 仅当 source 是玩家时返回其名字，否则返回 null。
     private static String sourcePlayerName(Object source) {
         try {
-            // ServerCommandSource 不带玩家名；Entity 才有 getName().getString() 等
             Class<?> entityCls = Class.forName("net.minecraft.entity.Entity");
             if (!entityCls.isInstance(source)) return null;
-            Object nameObj = source.getClass().getMethod("getName").invoke(source);
+            if (M_SOURCE_GET_NAME == null) return null;
+            Object nameObj = M_SOURCE_GET_NAME.invoke(source);
             return nameObj == null ? null : String.valueOf(nameObj);
         } catch (Throwable ignored) {
             return null;
@@ -468,16 +486,21 @@ public final class FabricCommandBridge {
         }
     }
 
-    /** 解析时间字符串。isStart 为 true 时，纯日期按当天 00:00:00 处理；否则按当天 23:59:59 处理。 */
+    private static final java.util.regex.Pattern DATE_TIME_PATTERN =
+            java.util.regex.Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})[ T](\\d{1,2}):(\\d{1,2})(?::(\\d{1,2}))?$");
+    private static final java.util.regex.Pattern DATE_PATTERN =
+            java.util.regex.Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})$");
+
     private static Long parseTime(String text, boolean isStart) {
         if (text == null || text.trim().isEmpty()) {
             return null;
         }
         String trimmed = text.trim();
-        java.util.regex.Matcher dt = java.util.regex.Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})[ T](\\d{1,2}):(\\d{1,2})(?::(\\d{1,2}))?$").matcher(trimmed);
+        java.util.regex.Matcher dt = DATE_TIME_PATTERN.matcher(trimmed);
         if (dt.matches()) {
             try {
                 java.util.Calendar cal = java.util.Calendar.getInstance();
+                cal.setLenient(false);
                 cal.clear();
                 cal.set(Integer.parseInt(dt.group(1)), Integer.parseInt(dt.group(2)) - 1, Integer.parseInt(dt.group(3)),
                         Integer.parseInt(dt.group(4)), Integer.parseInt(dt.group(5)), dt.group(6) != null ? Integer.parseInt(dt.group(6)) : 0);
@@ -486,10 +509,11 @@ public final class FabricCommandBridge {
                 return null;
             }
         }
-        java.util.regex.Matcher d = java.util.regex.Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})$").matcher(trimmed);
+        java.util.regex.Matcher d = DATE_PATTERN.matcher(trimmed);
         if (d.matches()) {
             try {
                 java.util.Calendar cal = java.util.Calendar.getInstance();
+                cal.setLenient(false);
                 cal.clear();
                 cal.set(Integer.parseInt(d.group(1)), Integer.parseInt(d.group(2)) - 1, Integer.parseInt(d.group(3)),
                         isStart ? 0 : 23, isStart ? 0 : 59, isStart ? 0 : 59);

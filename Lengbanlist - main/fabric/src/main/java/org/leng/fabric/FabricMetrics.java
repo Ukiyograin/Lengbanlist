@@ -22,10 +22,8 @@ public class FabricMetrics {
         this.plugin = plugin;
         this.serviceId = serviceId;
         this.serverUuid = loadServerUuid();
-        // 构造器仅初始化字段；线程启动延迟到 start()，确保 plugin 字段（特别是 server）就绪后再上报。
     }
 
-    /** 启动 metrics 上报线程。仅在插件完成字段初始化后调用。 */
     public void start() {
         submitAsync();
     }
@@ -73,6 +71,8 @@ public class FabricMetrics {
 
             byte[] compressed = compress(data.toString());
             HttpURLConnection connection = (HttpURLConnection) new URL(URL).openConnection();
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("Connection", "close");
