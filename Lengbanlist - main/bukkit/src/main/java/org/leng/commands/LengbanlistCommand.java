@@ -73,6 +73,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 boolean enabled = !plugin.isBroadcastEnabled();
                 plugin.setBroadcastEnabled(enabled);
                 Utils.sendMessage(sender, currentModel.toggleBroadcast(enabled));
+                plugin.getAuditManager().log(enabled ? "开启广播" : "关闭广播", Utils.getSenderName(sender), "", "");
                 break;
             case "a":
                 if (!plugin.isFeatureEnabled("broadcast")) {
@@ -200,13 +201,15 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 if (args[1].contains(".")) {
-                    if (!plugin.getBanManager().isIpBanned(args[1])) {
+                    if (!plugin.getBanManager().isIpBannedByCidr(args[1])) {
                         Utils.sendMessage(sender, plugin.prefix() + "§cIP " + args[1] + " 未被封禁或封禁已过期");
                         return true;
                     }
-                    BanManager.BanMutationResult removeIp = plugin.getBanManager().tryUnbanIp(args[1], Utils.getSenderName(sender), false);
+                    org.leng.object.BanIpEntry matchingBan = plugin.getBanManager().getMatchingIpBan(args[1]);
+                    String targetIp = (matchingBan != null && !matchingBan.getIp().equals(args[1])) ? matchingBan.getIp() : args[1];
+                    BanManager.BanMutationResult removeIp = plugin.getBanManager().tryUnbanIp(targetIp, Utils.getSenderName(sender), false);
                     if (!removeIp.isApplied()) {
-                        BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), removeIp, args[1], true);
+                        BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), removeIp, targetIp, true);
                     }
                 } else {
                     if (!plugin.getBanManager().isPlayerBanned(args[1])) {

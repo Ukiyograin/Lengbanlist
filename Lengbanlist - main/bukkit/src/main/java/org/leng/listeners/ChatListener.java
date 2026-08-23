@@ -5,6 +5,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.leng.Lengbanlist;
 import org.leng.commands.LengbanlistCommand;
 import org.leng.commands.WarnCommand;
@@ -97,5 +98,10 @@ public class ChatListener implements Listener {
         }
 
         event.setMessage(message);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        badWordCount.remove(event.getPlayer().getName());
     }
 }

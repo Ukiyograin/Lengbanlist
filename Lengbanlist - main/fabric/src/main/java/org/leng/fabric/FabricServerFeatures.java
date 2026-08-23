@@ -124,6 +124,10 @@ public final class FabricServerFeatures {
         }
     }
 
+    public void onPlayerLeave(Object player) {
+        badWordCount.remove(ReflectionSupport.playerName(player));
+    }
+
     private void notifyOperators(Object server, String message) {
         for (Object player : ReflectionSupport.onlinePlayers(server)) {
             if (ReflectionSupport.hasPermission(player, 2)) {

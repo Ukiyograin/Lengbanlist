@@ -210,10 +210,42 @@ public final class ReflectionSupport {
         }
     }
 
+    private static volatile Method cachedGetPlayerManager;
+    private static volatile Method cachedGetPlayerList;
+    private static volatile Class<?> cachedPlayerManagerClass;
+    private static final Object reflectLock = new Object();
+
+    private static Method findAndCache(Method cached, Class<?> owner, String name) {
+        if (cached != null) return cached;
+        synchronized (reflectLock) {
+            if (cached != null) return cached;
+            try {
+                return owner.getMethod(name);
+            } catch (NoSuchMethodException e) {
+                return null;
+            }
+        }
+    }
+
     public static Collection<?> onlinePlayers(Object server) {
         try {
-            Object playerManager = server.getClass().getMethod("getPlayerManager").invoke(server);
-            Object players = playerManager.getClass().getMethod("getPlayerList").invoke(playerManager);
+            Class<? extends Object> serverClass = server.getClass();
+            Method getPlayerManager = findAndCache(cachedGetPlayerManager, serverClass, "getPlayerManager");
+            if (getPlayerManager == null) return java.util.Collections.emptyList();
+            Object playerManager = getPlayerManager.invoke(server);
+            if (playerManager == null) return java.util.Collections.emptyList();
+            Class<? extends Object> pmClass = playerManager.getClass();
+            if (cachedPlayerManagerClass != pmClass) {
+                synchronized (reflectLock) {
+                    if (cachedPlayerManagerClass != pmClass) {
+                        cachedGetPlayerList = null;
+                        cachedPlayerManagerClass = pmClass;
+                    }
+                }
+            }
+            Method getPlayerList = findAndCache(cachedGetPlayerList, pmClass, "getPlayerList");
+            if (getPlayerList == null) return java.util.Collections.emptyList();
+            Object players = getPlayerList.invoke(playerManager);
             return (Collection<?>) players;
         } catch (Exception ignored) {
             return java.util.Collections.emptyList();

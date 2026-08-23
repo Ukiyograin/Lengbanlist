@@ -53,9 +53,15 @@ public class WarnManager {
         return false;
     }
 
+    private long warnWindowMillis() {
+        long days = plugin.getConfigInt("warn-manager.window-days", 30);
+        if (days <= 0) days = 30;
+        return days * 24L * 60 * 60 * 1000;
+    }
+
     private void checkAutoBan(String player) {
         long now = System.currentTimeMillis();
-        long timeWindow = 30L * 24 * 60 * 60 * 1000;
+        long timeWindow = warnWindowMillis();
         List<WarnEntry> validWarnings = getAllWarnings(player).stream()
                 .filter(e -> (now - e.getTime()) <= timeWindow)
                 .collect(Collectors.toList());
@@ -90,25 +96,27 @@ public class WarnManager {
     }
 
     private int extractTriggerCount(String reason) {
-        try {
-            int start = reason.lastIndexOf("第") + 1;
-            int end = reason.indexOf("次触发");
-            if (start > 0 && end > start) {
-                return Integer.parseInt(reason.substring(start, end));
+        if (reason == null) return 0;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("第(\\d+)次触发").matcher(reason);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group(1));
+            } catch (NumberFormatException ignored) {
+                return 0;
             }
-        } catch (Exception ignored) {}
+        }
         return 0;
     }
 
     public void checkUnbanIfNecessary(String player) {
         long now = System.currentTimeMillis();
-        long timeWindow = 30L * 24 * 60 * 60 * 1000;
+        long timeWindow = warnWindowMillis();
         List<WarnEntry> validWarnings = getAllWarnings(player).stream()
                 .filter(e -> (now - e.getTime()) <= timeWindow)
                 .collect(Collectors.toList());
 
         if (validWarnings.size() < 3 && plugin.getBanManager().isBanned(player, "LBAC")) {
-            BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanPlayer(player, null, false);
+            BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanPlayer(player, "LBAC", false);
             if (result.isApplied()) {
                 String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
                 plugin.broadcastMessage(message);
