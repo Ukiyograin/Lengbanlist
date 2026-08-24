@@ -89,7 +89,10 @@ public interface LengbanlistPlatform {
     void broadcastMessage(String message);
 
     default void logMessage(String message) {
-        getLogger().info(message);
+        // JUL 控制台不渲染 § 颜色码：直接在 logger 输出会产生乱码字符。
+        // 注意：chat/玩家输出走 broadcastMessage / sendMessage 路径，那里保留颜色码。
+        String stripped = message == null ? null : message.replaceAll("§.", "");
+        getLogger().info(stripped);
     }
 
     void runSync(Runnable task);

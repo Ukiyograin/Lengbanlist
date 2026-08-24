@@ -137,15 +137,21 @@ public final class FabricCommandBridge {
                 new Class[]{commandInterface},
                 (proxy, method, args) -> {
                     if (!"run".equals(method.getName())) return 0;
-                    Object context = args[0];
-                    Object source = context.getClass().getMethod("getSource").invoke(context);
-                    String[] parsedArgs = new String[0];
-                    if (withArgs) {
-                        String raw = String.valueOf(M_GET_STRING.invoke(null, context, "args"));
-                        parsedArgs = raw.trim().isEmpty() ? new String[0] : raw.trim().split("\\s+");
+                    try {
+                        Object context = args[0];
+                        Object source = context.getClass().getMethod("getSource").invoke(context);
+                        String[] parsedArgs = new String[0];
+                        if (withArgs) {
+                            String raw = String.valueOf(M_GET_STRING.invoke(null, context, "args"));
+                            parsedArgs = raw.trim().isEmpty() ? new String[0] : raw.trim().split("\\s+");
+                        }
+                        execute(plugin, source, command, parsedArgs);
+                        return 1;
+                    } catch (Throwable t) {
+                        // 捕获代理调用异常（避免被框架静默吞掉），便于诊断"无响应"类问题
+                        plugin.getLogger().warning("命令 " + command + " 执行异常: " + describe(t));
+                        return 0;
                     }
-                    execute(plugin, source, command, parsedArgs);
-                    return 1;
                 });
     }
 

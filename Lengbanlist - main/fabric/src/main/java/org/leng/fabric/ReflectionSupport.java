@@ -13,6 +13,28 @@ public final class ReflectionSupport {
     // 否则生产环境下每条消息都会静默失败（命令执行后看不到任何回复）。
     private static final java.lang.reflect.Method M_TEXT_LITERAL = findStatic(C_TEXT,
             new String[]{"literal", "method_43470"}, String.class);
+    private static final Class<?> C_SOURCE_CLASS = resolveClass(
+            "net.minecraft.server.command.ServerCommandSource", "net.minecraft.class_2168");
+
+    /**
+     * 在 onServerStarted 阶段调用，把反射结果汇总到日志。让"无响应"类问题一眼看到根因：
+     * 例如 C_TEXT 加载失败会导致所有玩家/控制台消息静默丢失。
+     */
+    public static void reportReflectionHealth(java.util.logging.Logger logger) {
+        if (C_TEXT == null) {
+            logger.severe("反射健康检查：net.minecraft.text.Text / class_2561 解析失败，" +
+                    "所有消息将不会显示给玩家/控制台，请确认 Minecraft 版本是否兼容（fabric.mod.json 声明 >=1.21）。");
+        } else if (M_TEXT_LITERAL == null) {
+            logger.severe("反射健康检查：Text.literal(String) 解析失败，" +
+                    "yarn method_43470 名称在当前 Minecraft 版本中不存在，消息将无法发送。");
+        } else {
+            logger.info("反射健康检查：Text 解析 OK (类=" + C_TEXT.getName() + ", 方法=" + M_TEXT_LITERAL.getName() + ")");
+        }
+        if (C_SOURCE_CLASS == null) {
+            logger.warning("反射健康检查：ServerCommandSource / class_2168 解析失败，" +
+                    "命令执行人名字与权限级别将退化为\"Console\"/默认放行。");
+        }
+    }
 
     /** 构造 Text.literal(message)；反射失败时返回 null。 */
     private static Object textLiteral(String message) {

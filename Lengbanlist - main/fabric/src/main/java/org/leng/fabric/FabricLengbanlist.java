@@ -202,6 +202,9 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     public void onServerStarted(Object server) {
         this.server = server;
         if (initialized || stopped) return;
+        // 反射健康检查：若 Text/ServerCommandSource 等关键类解析失败，后续消息/权限
+        // 检查会静默失败。让用户/管理员一眼看出问题根因。
+        ReflectionSupport.reportReflectionHealth(logger);
         // 服务端已就绪后再初始化数据库、管理器、Metrics、WebServer。
         // 此时 CommandRegistrationCallback 已派发完毕，但玩家尚未能连接/执行命令，
         // 任何管理器/数据库访问都已安全。
