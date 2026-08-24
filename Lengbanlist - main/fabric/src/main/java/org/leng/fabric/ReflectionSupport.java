@@ -69,6 +69,10 @@ public final class ReflectionSupport {
      * <p>Fabric 下 Minecraft 类由游戏启动器 ClassLoader 加载，本插件 ClassLoader 通过
      * parent delegation 通常能访问到；但若使用模块化启动（knot 模块）则可能隔离。
      * 因此这里按"调用者 / 线程上下文 / 系统"顺序逐个 ClassLoader 尝试。</p>
+     *
+     * <p>以上都失败时（跨大版本后硬编码的 intermediary 编号失效，例如 1.21→1.26 后
+     * class_2561 不再是 Text），用 Fabric Loader 的 MappingResolver 反查：取 yarn 名，
+     * 问 resolver "运行时叫什么"，再 Class.forName。该 API 内置在 fabric-loader 里。</p>
      */
     static Class<?> resolveClass(String yarnName, String intermediaryName) {
         ClassLoader[] loaders = new ClassLoader[]{
@@ -88,6 +92,83 @@ public final class ReflectionSupport {
                 if (c != null) return c;
             } catch (Throwable ignored) {
             }
+        }
+        // MappingResolver 兜底：把 yarn 名映射到运行时的真实类名（通常是 intermediary，
+        // 但跨大版本时编号已变，resolver 仍能给出正确的当前值）。
+        String runtimeName = resolveRuntimeName(yarnName, intermediaryName);
+        if (runtimeName != null) {
+            for (ClassLoader loader : loaders) {
+                if (loader == null) continue;
+                try {
+                    Class<?> c = Class.forName(runtimeName, false, loader);
+                    if (c != null) return c;
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 用 Fabric Loader 的 MappingResolver 把 yarn/intermediary 名翻成当前运行时的真实类名。
+     * 失败返回 null。
+     */
+    private static String resolveRuntimeName(String yarnName, String intermediaryName) {
+        try {
+            Class<?> fabricLoaderCls = Class.forName("net.fabricmc.loader.api.FabricLoader");
+            Object instance = fabricLoaderCls.getMethod("getInstance").invoke(null);
+            Object resolver = fabricLoaderCls.getMethod("getMappingResolver").invoke(instance);
+            // 优先查当前运行时命名空间（Mojang 自 1.20.5 起提供 official 命名空间，
+            // 一些发行版会用 official 而非 intermediary / yarn）。
+            String runtimeNs = null;
+            try {
+                runtimeNs = (String) resolver.getClass()
+                        .getMethod("getCurrentRuntimeNamespace")
+                        .invoke(resolver);
+            } catch (Throwable ignored) {
+            }
+            String[] namespaces = runtimeNs != null
+                    ? new String[]{"intermediary", "official", "yarn"}
+                    : new String[]{"intermediary", "yarn"};
+            String[] names = {intermediaryName, yarnName};
+            // 1) 已知命名空间 → 运行时
+            for (String ns : namespaces) {
+                for (String name : names) {
+                    if (name == null || name.isEmpty()) continue;
+                    try {
+                        String mapped = (String) resolver.getClass()
+                                .getMethod("mapClassName", String.class, String.class)
+                                .invoke(resolver, ns, name);
+                        if (mapped != null && !mapped.isEmpty()) return mapped;
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+            // 2) 不指定源命名空间：试运行时映射（即"输入是什么就返回什么"）。
+            //    MapClassName 不支持直接拿运行时名，但某些 MappingResolver 实现在
+            //    mapClassName(runtimeNs, name) 时会把"运行时"视为 from，需要 reverse。
+            //    此分支在 Fabric Loader >=0.16 提供 reverseLookup 的版本上兜底。
+            if (runtimeNs != null) {
+                try {
+                    Class<?> resolverCls = resolver.getClass();
+                    for (java.lang.reflect.Method m : resolverCls.getMethods()) {
+                        if (m.getName().equals("mapClassName") && m.getParameterCount() == 2) {
+                            try {
+                                String r = (String) m.invoke(resolver, runtimeNs, yarnName);
+                                if (r != null && !r.isEmpty()) return r;
+                            } catch (Throwable ignored) {
+                            }
+                            try {
+                                String r = (String) m.invoke(resolver, runtimeNs, intermediaryName);
+                                if (r != null && !r.isEmpty()) return r;
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        } catch (Throwable ignored) {
         }
         return null;
     }
