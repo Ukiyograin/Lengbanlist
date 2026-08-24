@@ -103,43 +103,17 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             return;
         }
         try {
-            databaseManager = new DatabaseManager(this);
-            databaseManager.initialize();
-            banManager = new BanManager(this);
-            muteManager = new MuteManager(this);
-            warnManager = new WarnManager(this);
-            reportManager = new ReportManager(this);
-            ipAssociationManager = new IpAssociationManager(this);
-            auditManager = new AuditManager(this);
-            escalationManager = new EscalationManager(this);
-            modelManager = ModelManager.getInstance();
-            webServer = new WebServer(this);
-            serverFeatures = new FabricServerFeatures(this);
-        } catch (Exception e) {
-            logger.severe("数据库初始化失败，插件将停止启用: " + e.getMessage());
-            e.printStackTrace();
-            logger.severe("==================================================");
-            logger.severe("插件启用被终止：数据库初始化失败，请检查 database 配置和数据库连接。");
-            logger.severe("==================================================");
-            return;
-        }
-        try {
-            logger.info(plain(prefix() + "§f原神§2正在加载"));
+            // 注册回调（命令、生命周期、聊天、加入）。注册动作本身不要求服务端就绪，
+            // 但对应事件触发时要保证管理器已初始化，见 onServerStarted。
             FabricCommandBridge.register(this);
             FabricJoinBridge.register(this);
             FabricChatBridge.register(this);
             FabricServerLifecycleBridge.register(this);
-            startMetrics();
-            if (getConfigBoolean("features.update-check", false)) {
-                updateCheckThread = new Thread(GitHubUpdateChecker::checkUpdate, "Lengbanlist Update Check");
-                updateCheckThread.start();
-            }
-            logger.info(plain(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName()));
         } catch (Exception e) {
-            logger.severe("命令或事件注册失败，插件将停止启用: " + e.getMessage());
+            logger.severe("事件回调注册失败，插件将停止启用: " + e.getMessage());
             e.printStackTrace();
             logger.severe("==================================================");
-            logger.severe("插件启用被终止：命令或事件注册失败，请检查日志中的具体异常。");
+            logger.severe("插件启用被终止：事件回调注册失败，请检查日志中的具体异常。");
             logger.severe("==================================================");
             return;
         }
@@ -228,16 +202,47 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     public void onServerStarted(Object server) {
         this.server = server;
         if (initialized || stopped) return;
-        initialized = true;
+        // 服务端已就绪后再初始化数据库、管理器、Metrics、WebServer。
+        // 此时 CommandRegistrationCallback 已派发完毕，但玩家尚未能连接/执行命令，
+        // 任何管理器/数据库访问都已安全。
+        try {
+            logger.info(plain(prefix() + "§f原神§2正在加载"));
+            databaseManager = new DatabaseManager(this);
+            databaseManager.initialize();
+            banManager = new BanManager(this);
+            muteManager = new MuteManager(this);
+            warnManager = new WarnManager(this);
+            reportManager = new ReportManager(this);
+            ipAssociationManager = new IpAssociationManager(this);
+            auditManager = new AuditManager(this);
+            escalationManager = new EscalationManager(this);
+            modelManager = ModelManager.getInstance();
+            webServer = new WebServer(this);
+            serverFeatures = new FabricServerFeatures(this);
+            initialized = true;
+        } catch (Exception e) {
+            logger.severe("数据库初始化失败，插件将停止启用: " + e.getMessage());
+            e.printStackTrace();
+            logger.severe("==================================================");
+            logger.severe("插件启用被终止：数据库初始化失败，请检查 database 配置和数据库连接。");
+            logger.severe("==================================================");
+            return;
+        }
         startPeriodicTasks();
-        // metrics 实例在 onInitialize 阶段构造，线程启动延迟到这里：此时 server 字段已就绪，
+        // metrics 实例与线程都推迟到此处启动：onInitialize 阶段 server 字段为 null，
         // 上报线程读取 plugin.getOnlinePlayerCount() 时能拿到正确的服务端状态。
+        startMetrics();
         if (metrics != null) {
             metrics.start();
+        }
+        if (getConfigBoolean("features.update-check", false)) {
+            updateCheckThread = new Thread(GitHubUpdateChecker::checkUpdate, "Lengbanlist Update Check");
+            updateCheckThread.start();
         }
         if (getConfigBoolean("web.enabled", false)) {
             webServer.start();
         }
+        logger.info(plain(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName()));
     }
 
     public void onServerStopping() {
@@ -455,7 +460,8 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     @Override
     public void broadcastMessage(String message) {
         if (server == null) {
-            logger.info(message);
+            // 服务端未就绪时回落到 JUL：剥离 § 颜色码避免控制台输出乱码字符。
+            logger.info(plain(message));
             return;
         }
         ReflectionSupport.broadcast(server, message);
