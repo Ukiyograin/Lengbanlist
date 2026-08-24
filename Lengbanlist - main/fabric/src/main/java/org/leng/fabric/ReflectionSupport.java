@@ -65,17 +65,31 @@ public final class ReflectionSupport {
     /**
      * 依次尝试 yarn 名与 intermediary 名加载 Minecraft 类。
      * 开发环境（yarn 映射）命中前者，生产环境命中后者；都失败返回 null。
+     *
+     * <p>Fabric 下 Minecraft 类由游戏启动器 ClassLoader 加载，本插件 ClassLoader 通过
+     * parent delegation 通常能访问到；但若使用模块化启动（knot 模块）则可能隔离。
+     * 因此这里按"调用者 / 线程上下文 / 系统"顺序逐个 ClassLoader 尝试。</p>
      */
     static Class<?> resolveClass(String yarnName, String intermediaryName) {
-        try {
-            return Class.forName(yarnName);
-        } catch (Throwable ignored) {
+        ClassLoader[] loaders = new ClassLoader[]{
+                ReflectionSupport.class.getClassLoader(),
+                Thread.currentThread().getContextClassLoader(),
+                ClassLoader.getSystemClassLoader()
+        };
+        for (ClassLoader loader : loaders) {
+            if (loader == null) continue;
+            try {
+                Class<?> c = Class.forName(yarnName, false, loader);
+                if (c != null) return c;
+            } catch (Throwable ignored) {
+            }
+            try {
+                Class<?> c = Class.forName(intermediaryName, false, loader);
+                if (c != null) return c;
+            } catch (Throwable ignored) {
+            }
         }
-        try {
-            return Class.forName(intermediaryName);
-        } catch (Throwable ignored) {
-            return null;
-        }
+        return null;
     }
 
     /** 在类上按候选名称顺序查找无参方法，全部未命中返回 null。 */
