@@ -46,9 +46,14 @@ public final class ReflectionSupport {
             }
             String mappedFromYarn = safeMap(resolver, "intermediary", "net.minecraft.text.Text");
             String mappedFromIp = safeMap(resolver, "intermediary", "net.minecraft.class_2561");
+            String mappedYarn2Runtime = safeMap(resolver, "yarn", "net.minecraft.text.Text");
+            String mappedIp2Runtime = safeMap(resolver, "intermediary", "net.minecraft.class_2561");
+            String officialSelf = safeMap(resolver, "official", "net.minecraft.text.Text");
             logger.warning("反射诊断：runtimeNamespace=" + runtimeNs
-                    + ", intermediary(yarn Text)=" + mappedFromYarn
-                    + ", intermediary(class_2561)=" + mappedFromIp
+                    + ", ip(yarn Text)=" + mappedFromYarn
+                    + ", ip(class_2561)=" + mappedFromIp
+                    + ", yarn(yarn Text)=" + mappedYarn2Runtime
+                    + ", official(official Text)=" + officialSelf
                     + ", 实际加载=" + (C_TEXT == null ? "null" : C_TEXT.getName()));
         } catch (Throwable t) {
             logger.warning("反射诊断：MappingResolver 不可用 - " + t.getClass().getSimpleName() + ": " + t.getMessage());
