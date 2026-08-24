@@ -34,6 +34,34 @@ public final class ReflectionSupport {
             logger.warning("反射健康检查：ServerCommandSource / class_2168 解析失败，" +
                     "命令执行人名字与权限级别将退化为\"Console\"/默认放行。");
         }
+        // 把 MappingResolver 实际返回的"运行时类名"一并打出来，便于排查命名空间错位。
+        try {
+            Class<?> fabricLoaderCls = Class.forName("net.fabricmc.loader.api.FabricLoader");
+            Object instance = fabricLoaderCls.getMethod("getInstance").invoke(null);
+            Object resolver = fabricLoaderCls.getMethod("getMappingResolver").invoke(instance);
+            String runtimeNs = null;
+            try {
+                runtimeNs = (String) resolver.getClass().getMethod("getCurrentRuntimeNamespace").invoke(resolver);
+            } catch (Throwable ignored) {
+            }
+            String mappedFromYarn = safeMap(resolver, "intermediary", "net.minecraft.text.Text");
+            String mappedFromIp = safeMap(resolver, "intermediary", "net.minecraft.class_2561");
+            logger.warning("反射诊断：runtimeNamespace=" + runtimeNs
+                    + ", intermediary(yarn Text)=" + mappedFromYarn
+                    + ", intermediary(class_2561)=" + mappedFromIp
+                    + ", 实际加载=" + (C_TEXT == null ? "null" : C_TEXT.getName()));
+        } catch (Throwable t) {
+            logger.warning("反射诊断：MappingResolver 不可用 - " + t.getClass().getSimpleName() + ": " + t.getMessage());
+        }
+    }
+
+    private static String safeMap(Object resolver, String ns, String name) {
+        try {
+            Object r = resolver.getClass().getMethod("mapClassName", String.class, String.class).invoke(resolver, ns, name);
+            return r == null ? "null" : String.valueOf(r);
+        } catch (Throwable t) {
+            return "<throw:" + t.getClass().getSimpleName() + ">";
+        }
     }
 
     /** 构造 Text.literal(message)；反射失败时返回 null。 */
