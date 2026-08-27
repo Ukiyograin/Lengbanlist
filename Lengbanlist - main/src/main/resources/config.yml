@@ -121,7 +121,7 @@ database:
     port: 3306
     database: "lengbanlist"
     username: "root"
-    password: "password"
+    password: ""
 
 # ---------- VPN/代理检测 ----------
 vpn-detection:

@@ -23,6 +23,9 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
@@ -46,6 +49,7 @@ public class WebServer {
     private final Lengbanlist plugin;
     private final Gson gson = new Gson();
     private HttpServer server;
+    private ExecutorService executor;
     private AuthManager authManager;
     private boolean running;
 
@@ -67,7 +71,8 @@ public class WebServer {
 
             authManager = new AuthManager(secret, username, password);
             server = HttpServer.create(new InetSocketAddress(host, port), 64);
-            server.setExecutor(Executors.newCachedThreadPool());
+            executor = Executors.newFixedThreadPool(Math.max(4, Runtime.getRuntime().availableProcessors() * 2));
+            server.setExecutor(executor);
 
             server.createContext("/api/login", this::handleLogin);
             server.createContext("/api/logout", this::handleLogout);
@@ -108,7 +113,18 @@ public class WebServer {
 
     public void stop() {
         if (server != null) {
-            server.stop(0);
+            server.stop(1);
+            if (executor != null) {
+                executor.shutdown();
+                try {
+                    if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                        executor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    executor.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
+            }
             running = false;
             plugin.getLogger().info("Web管理面板已关闭");
         }

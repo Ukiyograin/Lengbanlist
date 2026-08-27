@@ -168,7 +168,8 @@ public class AutoUpdateManager {
             }
             logger.info("SHA-256 校验通过：与官方发布一致");
         } else {
-            logger.warning("无法获取官方 SHA-256（当前更新源未提供），已跳过哈希校验，仅完成结构校验。建议改用 GitHub 直连/代理镜像或手动下载更新。");
+            tempFile.delete();
+            throw new IOException("无法获取官方 SHA-256 摘要（当前更新源未提供），出于安全考虑，拒绝安装未经校验的 JAR 文件。请改用 GitHub 直连/代理镜像或手动下载更新。");
         }
 
         // 校验 jar 包结构（zip 完整性 + plugin.yml 主类），防止镜像返回被截断/篡改的文件。

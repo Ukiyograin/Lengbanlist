@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatListener implements Listener {
     private final Lengbanlist plugin;
     private final Map<String, Integer> badWordCount = new ConcurrentHashMap<>();
+    private static final java.util.regex.Pattern MEOW_REPEAT = java.util.regex.Pattern.compile(".*\\b(\\w*喵\\w*){2,}.*");
 
     public ChatListener(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -88,7 +89,7 @@ public class ChatListener implements Listener {
             );
         }
 
-        if (!containsBadWord && message.matches(".*\\b(\\w*喵\\w*){2,}.*")) {
+        if (!containsBadWord && MEOW_REPEAT.matcher(message).find()) {
             SchedulerUtils.runTask(plugin, () -> {
                 for (Player admin : Bukkit.getOnlinePlayers()) {
                     if (admin.isOp()) {
