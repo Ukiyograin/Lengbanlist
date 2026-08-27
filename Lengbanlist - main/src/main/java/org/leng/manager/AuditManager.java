@@ -16,6 +16,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 public class AuditManager {
@@ -61,7 +62,7 @@ public class AuditManager {
     public void exportAudit(CommandSender sender, int limit) {
         SchedulerUtils.runAsync(plugin, () -> {
             try {
-                int max = limit <= 0 ? 200000 : Math.max(limit, 1);
+                int max = limit <= 0 ? 10000 : Math.max(1, Math.min(limit, 100000));
                 int step = 1000;
                 int total = 0;
                 File dir = new File(plugin.getDataFolder(), "exports");
@@ -92,6 +93,7 @@ public class AuditManager {
                     }
                     writer.write(']');
                 }
+                cleanupExports(dir);
                 final String fPath = file.getAbsolutePath();
                 final int fTotal = total;
                 SchedulerUtils.runTask(plugin, () -> Utils.sendMessage(sender, plugin.prefix() + "§a审计日志已导出：" + fPath + "，共 " + fTotal + " 行"));
@@ -100,6 +102,26 @@ public class AuditManager {
                 SchedulerUtils.runTask(plugin, () -> Utils.sendMessage(sender, plugin.prefix() + "§c导出审计日志失败: " + e.getMessage()));
             }
         });
+    }
+
+    /**
+     * 清理 exports 目录:仅保留 {@code maxFiles} 个最新文件,超出按最后修改时间从旧到新删除。
+     * 上限从 {@code audit.export.max-files} 读取,缺省 20。
+     */
+    public int cleanupExports(File dir) {
+        int maxFiles = plugin.getConfig().getInt("audit.export.max-files", 20);
+        if (maxFiles <= 0) return 0;
+        File[] files = dir.listFiles((d, name) -> name.startsWith("audit_export_") && name.endsWith(".json"));
+        if (files == null || files.length <= maxFiles) return 0;
+        Arrays.sort(files, (a, b) -> Long.compare(a.lastModified(), b.lastModified()));
+        int removed = 0;
+        for (int i = 0; i < files.length - maxFiles; i++) {
+            if (files[i].delete()) removed++;
+        }
+        if (removed > 0) {
+            plugin.getLogger().info("已清理 " + removed + " 个旧审计导出文件,保留 " + maxFiles + " 个最新文件");
+        }
+        return removed;
     }
 
     public void verifyAudit(CommandSender sender) {

@@ -82,6 +82,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 boolean enabled = !plugin.isBroadcastEnabled();
                 plugin.setBroadcastEnabled(enabled);
                 Utils.sendMessage(sender, currentModel.toggleBroadcast(enabled));
+                plugin.getAuditManager().log(enabled ? "开启广播" : "关闭广播", Utils.getSenderName(sender), "", "");
                 break;
             case "a":
                 if (!sender.hasPermission("lengbanlist.broadcast")) {

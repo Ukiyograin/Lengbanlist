@@ -10,6 +10,8 @@ import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 
@@ -137,14 +139,17 @@ public class WarnManager {
         }
     }
 
+    private static final Pattern TRIGGER_COUNT_PATTERN = Pattern.compile("第(\\d+)次触发");
+
     private int extractTriggerCount(String reason) {
-        try {
-            int start = reason.lastIndexOf("第") + 1;
-            int end = reason.indexOf("次触发");
-            if (start > 0 && end > start) {
-                return Integer.parseInt(reason.substring(start, end));
+        if (reason == null) return 0;
+        Matcher m = TRIGGER_COUNT_PATTERN.matcher(reason);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group(1));
+            } catch (NumberFormatException ignored) {
+                return 0;
             }
-        } catch (Exception ignored) {
         }
         return 0;
     }
@@ -162,7 +167,7 @@ public class WarnManager {
             if (IpMatcher.isValidIpOrCidr(player)) {
                 if (plugin.getBanManager().isIpBanned(player)) {
                     BanManager.BanMutationResult result = plugin.getBanManager()
-                            .tryUnbanIp(player, null, false);
+                            .tryUnbanIp(player, "LBAC", false);
                     if (result.isApplied()) {
                         String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
                         plugin.getServer().broadcastMessage(message);
@@ -172,7 +177,7 @@ public class WarnManager {
                 }
             } else if (plugin.getBanManager().isBanned(player, "LBAC")) {
                 BanManager.BanMutationResult result = plugin.getBanManager()
-                        .tryUnbanPlayer(player, null, false);
+                        .tryUnbanPlayer(player, "LBAC", false);
                 if (result.isApplied()) {
                     String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
                     plugin.getServer().broadcastMessage(message);
