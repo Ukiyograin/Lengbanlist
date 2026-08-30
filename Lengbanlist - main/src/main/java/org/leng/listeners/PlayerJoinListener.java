@@ -48,9 +48,9 @@ public class PlayerJoinListener implements Listener {
             }
         }
 
-        if (plugin.isFeatureEnabled("vpn-detection")) {
+        if (plugin.isFeatureEnabled("vpn-detection") && player.getAddress() != null && player.getAddress().getAddress() != null) {
             String ip = player.getAddress().getAddress().getHostAddress();
-            if (IpAssociationManager.isRealIp(ip)) {
+            if (ip != null && IpAssociationManager.isRealIp(ip)) {
                 SchedulerUtils.runAsync(plugin, () -> {
                     boolean isVpn = plugin.getIpAssociationManager().isVpnIp(ip);
                     if (isVpn) {

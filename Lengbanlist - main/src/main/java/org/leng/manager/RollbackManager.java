@@ -303,42 +303,45 @@ public class RollbackManager {
         return false;
     }
 
-    /** 取消警告 → 恢复该警告。优先用审计 reason 中的"警告ID: <id>"定位。 */
+    /** 取消警告 → 恢复该警告。从审计 reason 中的"警告ID: <id>"列表定位,可一次恢复多条。 */
     private boolean rollbackUnwarn(AuditEntry log, String target) {
-        String warnId = extractWarnId(log);
+        List<String> warnIds = extractWarnIds(log);
         List<org.leng.object.WarnEntry> warnings = plugin.getWarnManager().getAllWarnings(target);
+        boolean anyRestored = false;
         for (org.leng.object.WarnEntry warn : warnings) {
-            if (warnId != null && !warn.getId().equals(warnId)) {
+            if (warnIds != null && !warnIds.contains(warn.getId())) {
                 continue;
             }
             if (warn.isRevoked()) {
                 warn.unrevoke();
                 plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), false);
-                return true;
+                anyRestored = true;
             }
         }
-        return false;
+        return anyRestored;
     }
 
     /**
-     * 从审计日志的 reason 中提取警告 ID。
-     * 警告/取消警告的审计 reason 形如 "警告ID: <id>"。
-     * 若无法提取，则尝试从 ID 本身解析（兼容历史数据）。
+     * 从审计日志的 reason 中提取所有警告 ID。
+     * 批量取消警告的 reason 形如 "警告ID: &lt;id1&gt;,警告ID: &lt;id2&gt;,..."。
      */
-    private String extractWarnId(AuditEntry log) {
+    private List<String> extractWarnIds(AuditEntry log) {
         String reason = log.getReason() == null ? "" : log.getReason();
-        int idx = reason.indexOf("警告ID: ");
-        if (idx >= 0) {
-            String id = reason.substring(idx + "警告ID: ".length()).trim();
-            if (!id.isEmpty()) {
-                return id;
+        if (!reason.contains("警告ID: ")) {
+            return null;
+        }
+        List<String> ids = new java.util.ArrayList<>();
+        int idx = 0;
+        while ((idx = reason.indexOf("警告ID: ", idx)) >= 0) {
+            idx += "警告ID: ".length();
+            int end = idx;
+            while (end < reason.length() && reason.charAt(end) != ',' && reason.charAt(end) != ' ') {
+                end++;
             }
+            String id = reason.substring(idx, end).trim();
+            if (!id.isEmpty()) ids.add(id);
+            idx = end;
         }
-        // 兼容旧格式：reason 直接是 <player>|<staff>|<time>|<reason>|<revoked>
-        Matcher m = WARN_ID_PATTERN.matcher(reason);
-        if (m.find()) {
-            return reason;
-        }
-        return null;
+        return ids.isEmpty() ? null : ids;
     }
 }

@@ -154,8 +154,10 @@ public class BanManager {
         if (target == null || target.isEmpty()) return;
         for (Player online : plugin.getServer().getOnlinePlayers()) {
             if (isIp) {
-                if (online.getAddress() == null) continue;
-                String ip = online.getAddress().getAddress().getHostAddress();
+                java.net.InetSocketAddress addr = online.getAddress();
+                if (addr == null || addr.getAddress() == null) continue;
+                String ip = addr.getAddress().getHostAddress();
+                if (ip == null) continue;
                 BanIpEntry banIp = getMatchingIpBan(ip);
                 if (banIp == null || banIp.getTime() <= System.currentTimeMillis()) continue;
                 SchedulerUtils.runTask(plugin, online, () -> online.kickPlayer("您的 IP 已被封禁，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime())));

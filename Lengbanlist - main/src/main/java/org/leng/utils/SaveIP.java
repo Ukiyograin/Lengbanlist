@@ -33,12 +33,15 @@ public class SaveIP {
     }
 
     public static void saveIP(Player player) {
-        String newIP = player.getAddress().getAddress().getHostAddress();
-        if (isRealIP(newIP)) {
-            Lengbanlist plugin = Lengbanlist.getInstance();
-            plugin.getDatabaseManager().upsertPlayerIp(player.getName(), newIP, System.currentTimeMillis());
-            plugin.getDatabaseManager().recordPlayerIp(player.getName(), newIP, System.currentTimeMillis());
-        }
+        java.net.InetSocketAddress addr = player.getAddress();
+        if (addr == null) return;
+        java.net.InetAddress inet = addr.getAddress();
+        if (inet == null) return;
+        String newIP = inet.getHostAddress();
+        if (newIP == null || !isRealIP(newIP)) return;
+        Lengbanlist plugin = Lengbanlist.getInstance();
+        plugin.getDatabaseManager().upsertPlayerIp(player.getName(), newIP, System.currentTimeMillis());
+        plugin.getDatabaseManager().recordPlayerIp(player.getName(), newIP, System.currentTimeMillis());
     }
 
     public static String getIP(String player) {

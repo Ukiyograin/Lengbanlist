@@ -37,6 +37,8 @@ public class DatabaseManager {
     private final Lengbanlist plugin;
     private HikariDataSource dataSource;
     private boolean mysql;
+    // 串行化所有审计链写入,防止两个连接同时读到同一 prev_hash 并各自 INSERT → 链分叉
+    private final Object auditChainLock = new Object();
 
     public DatabaseManager(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -709,14 +711,10 @@ public class DatabaseManager {
     }
 
     public boolean addAuditLogChained(String actor, String action, String target, String reason, boolean success) {
+        synchronized (auditChainLock) {
         try (Connection connection = getConnection()) {
             connection.setAutoCommit(false);
             try {
-                if (mysql) {
-                    try (PreparedStatement lock = connection.prepareStatement("SELECT meta_value FROM schema_meta WHERE meta_key='audit.tail' FOR UPDATE")) {
-                        lock.executeQuery();
-                    }
-                }
                 String prevHash = ZERO_HASH;
                 try (PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log ORDER BY id DESC LIMIT 1")) {
                     try (ResultSet rs = ps.executeQuery()) {
@@ -752,6 +750,7 @@ public class DatabaseManager {
             logSql(e);
             return false;
         }
+        } // end synchronized auditChainLock
     }
 
     public List<AuditEntry> getAuditLogsAsc(int offset, int limit) {

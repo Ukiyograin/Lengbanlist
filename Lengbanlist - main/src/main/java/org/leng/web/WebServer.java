@@ -381,16 +381,11 @@ public class WebServer {
 
     private void applyCorsHeaders(HttpExchange exchange) {
         String origin = exchange.getRequestHeaders().getFirst("Origin");
-        if (origin == null) {
+        if (origin == null || origin.trim().isEmpty()) {
             return;
         }
-        String host = exchange.getRequestHeaders().getFirst("Host");
-        if (origin.equalsIgnoreCase("http://" + host) || origin.equalsIgnoreCase("https://" + host)) {
-            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
-            exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            return;
-        }
+        // 移除以 Host 反射 Origin 的"宽松同源"逻辑,只允许 config 中显式声明的 origin。
+        // 否则非浏览器客户端通过伪造 Host 头即可绕过 CORS,即便有 JWT 兜底也是 misconfig。
         for (String allowed : plugin.getConfig().getStringList("web.allowed-origins")) {
             if (!allowed.trim().isEmpty() && origin.equalsIgnoreCase(allowed.trim())) {
                 exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
@@ -594,6 +589,8 @@ public class WebServer {
             String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
             final String finalReason = reason;
             AtomicReference<String> outcome = new AtomicReference<>("ok");
+            String staff = authManager.resolveActor(extractToken(exchange));
+            final String finalStaff = staff;
             boolean completed = runSync(exchange, () -> {
                 Player player = plugin.getServer().getPlayerExact(target);
                 if (player == null) {
@@ -605,6 +602,8 @@ public class WebServer {
                     return;
                 }
                 player.kickPlayer(finalReason);
+                // 审计写入必须在 runSync 内与踢人同步,防止 504 后审计缺失
+                plugin.getAuditManager().log("踢出", finalStaff, target, reason);
             });
             if (!completed) return;
             if ("404".equals(outcome.get())) {
@@ -616,7 +615,6 @@ public class WebServer {
                 return;
             }
 
-            plugin.getAuditManager().log("踢出", authManager.resolveActor(extractToken(exchange)), target, reason);
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", target + " 已被踢出");

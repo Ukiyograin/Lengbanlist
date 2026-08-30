@@ -32,14 +32,24 @@ public class GetIPCommand implements CommandExecutor {
         if (args.length == 0) {
             if (sender instanceof Player) {
                 Player player = (Player) sender;
-                showIpLocation(player, player.getAddress().getAddress().getHostAddress(), "你");
+                java.net.InetSocketAddress addr = player.getAddress();
+                if (addr == null || addr.getAddress() == null) {
+                    sender.sendMessage(plugin.prefix() + "§c无法获取你的地址");
+                    return true;
+                }
+                showIpLocation(player, addr.getAddress().getHostAddress(), "你");
             } else {
                 sender.sendMessage(plugin.prefix() + "§c请指定一个玩家名称，例如: /lban getip <玩家名称>");
             }
         } else {
             Player targetPlayer = plugin.getServer().getPlayer(args[0]);
             if (targetPlayer != null) {
-                showIpLocation(sender, targetPlayer.getAddress().getAddress().getHostAddress(), "玩家 " + targetPlayer.getName());
+                java.net.InetSocketAddress addr = targetPlayer.getAddress();
+                if (addr == null || addr.getAddress() == null) {
+                    sender.sendMessage(plugin.prefix() + "§c该玩家没有可用地址");
+                    return true;
+                }
+                showIpLocation(sender, addr.getAddress().getHostAddress(), "玩家 " + targetPlayer.getName());
             } else {
                 sender.sendMessage(plugin.prefix() + "§c未找到玩家：" + args[0]);
             }

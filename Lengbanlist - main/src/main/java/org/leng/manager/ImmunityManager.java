@@ -43,11 +43,11 @@ public class ImmunityManager {
     private int getIpTargetWeight(String ip) {
         int highest = Integer.MIN_VALUE;
         for (Player online : plugin.getServer().getOnlinePlayers()) {
-            if (online.getAddress() == null) {
+            if (online.getAddress() == null || online.getAddress().getAddress() == null) {
                 continue;
             }
             String playerIp = online.getAddress().getAddress().getHostAddress();
-            if (!playerIp.equals(ip)) {
+            if (playerIp == null || !playerIp.equals(ip)) {
                 continue;
             }
             int weight = resolveWeight(online);

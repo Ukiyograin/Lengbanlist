@@ -474,15 +474,30 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 String normalizedUnwarn = IpMatcher.normalizeIpOrCidr(unwarnTarget);
                 if (normalizedUnwarn != null) unwarnTarget = normalizedUnwarn;
                 List<WarnEntry> warnings = plugin.getWarnManager().getActiveWarnings(unwarnTarget);
-                for (WarnEntry warn : warnings) {
-                    if (!warn.isRevoked()) {
-                        warn.revoke();
-                        plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), true);
-                    }
-                }
                 if (!warnings.isEmpty()) {
-                    plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), unwarnTarget, "全部警告");
+                    // reason 必须包含所有警告 ID,否则 rollbackUnwarn 无法批量恢复
+                    StringBuilder ids = new StringBuilder();
+                    boolean first = true;
+                    for (WarnEntry w : warnings) {
+                        if (!first) ids.append(",");
+                        ids.append("警告ID: ").append(w.getId());
+                        first = false;
+                    }
+                    for (WarnEntry warn : warnings) {
+                        if (!warn.isRevoked()) {
+                            warn.revoke();
+                            plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), true);
+                        }
+                    }
+                    plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), unwarnTarget, ids.toString());
                     plugin.getWarnManager().checkUnbanIfNecessary(unwarnTarget);
+                } else {
+                    for (WarnEntry warn : warnings) {
+                        if (!warn.isRevoked()) {
+                            warn.revoke();
+                            plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), true);
+                        }
+                    }
                 }
                 Utils.sendMessage(sender, currentModel.removeWarn(unwarnTarget));
                 break;

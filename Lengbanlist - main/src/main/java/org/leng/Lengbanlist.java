@@ -533,28 +533,32 @@ void shutdownStorage() {
         try {
             URL url = new URL("https://v1.hitokoto.cn/");
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0");
-            connection.setConnectTimeout(3000);
-            connection.setReadTimeout(3000);
+            try {
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+                connection.setConnectTimeout(3000);
+                connection.setReadTimeout(3000);
 
-            int responseCode = connection.getResponseCode();
-            if (responseCode != 200) {
-                return "我不说了，嘿嘿~";
+                int responseCode = connection.getResponseCode();
+                if (responseCode != 200) {
+                    return "我不说了，嘿嘿~";
+                }
+
+                StringBuilder response = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                }
+
+                String jsonResponse = response.toString();
+                String hitokoto = jsonResponse.split("\"hitokoto\":\"")[1].split("\"")[0];
+                String from = jsonResponse.split("\"from\":\"")[1].split("\"")[0];
+                return hitokoto + " —— " + from;
+            } finally {
+                connection.disconnect();
             }
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
-            }
-            reader.close();
-
-            String jsonResponse = response.toString();
-            String hitokoto = jsonResponse.split("\"hitokoto\":\"")[1].split("\"")[0];
-            String from = jsonResponse.split("\"from\":\"")[1].split("\"")[0];
-            return hitokoto + " —— " + from;
         } catch (Exception e) {
             return "我不说了，嘿嘿~";
         }

@@ -79,6 +79,11 @@ public class AutoUpdateManager {
             throw new Exception("无法获取当前插件文件");
         }
 
+        // 防止被劫持的 release 用 ../../payload 形式污染磁盘路径;允许 v 前缀、MAJOR.MINOR 或 MAJOR.MINOR.PATCH、可选 pre-release/build 元数据
+        if (!version.matches("^v?\\d+\\.\\d+(\\.\\d+)?(-[\\w.]+)?(\\+[\\w.]+)?$")) {
+            throw new IOException("拒绝非法版本号: " + version + "（需形如 1.0 / 1.0.0 / v1.0.0 / 1.0.0-beta.1）");
+        }
+
 
         String currentFileName = currentPluginFile.getName();
         String baseName = getPluginBaseName(currentFileName);

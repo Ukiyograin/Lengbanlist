@@ -24,9 +24,17 @@ public class IpAssociationManager {
         this.plugin = plugin;
     }
 
+    private static String safeGetHostAddress(Player player) {
+        java.net.InetSocketAddress addr = player.getAddress();
+        if (addr == null || addr.getAddress() == null) return null;
+        return addr.getAddress().getHostAddress();
+    }
+
     public void recordLogin(Player player) {
-        String ip = player.getAddress().getAddress().getHostAddress();
-        if (!isRealIp(ip)) return;
+        java.net.InetSocketAddress addr = player.getAddress();
+        if (addr == null || addr.getAddress() == null) return;
+        String ip = addr.getAddress().getHostAddress();
+        if (ip == null || !isRealIp(ip)) return;
         plugin.getDatabaseManager().recordPlayerIp(player.getName(), ip, System.currentTimeMillis());
     }
 
@@ -99,8 +107,8 @@ public class IpAssociationManager {
     }
 
     public boolean hasSuspiciousLogin(Player player) {
-        String ip = player.getAddress().getAddress().getHostAddress();
-        if (!isRealIp(ip)) return false;
+        String ip = safeGetHostAddress(player);
+        if (ip == null || !isRealIp(ip)) return false;
         List<String> players = getPlayersByIp(ip);
         for (String p : players) {
             if (!p.equalsIgnoreCase(player.getName())) return true;
@@ -109,8 +117,7 @@ public class IpAssociationManager {
     }
 
     public List<String> getSuspiciousLoginDetails(Player player) {
-        String ip = player.getAddress().getAddress().getHostAddress();
-        List<String> details = new ArrayList<>();
+        String ip = safeGetHostAddress(player);        List<String> details = new ArrayList<>();
         List<String> players = getPlayersByIp(ip);
         for (String p : players) {
             if (!p.equalsIgnoreCase(player.getName())) {
