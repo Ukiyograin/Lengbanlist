@@ -200,45 +200,12 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
     
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
-    getCommand("lban").setExecutor(lbanCmd);
-    getCommand("lban").setTabCompleter(lbanCmd);
-    BanCommand banCmd = new BanCommand(Lengbanlist.this);
-    setFeatureExecutor("ban", "ban", banCmd);
-    if (isFeatureEnabled("ban")) {
-        getCommand("ban").setTabCompleter(banCmd);
+    PluginCommand lban = getCommand("lban");
+    if (lban != null) {
+        lban.setExecutor(lbanCmd);
+        lban.setTabCompleter(lbanCmd);
     }
-    BanIpCommand banIpCmd = new BanIpCommand(Lengbanlist.this);
-    setFeatureExecutor("ban-ip", "ban-ip", banIpCmd);
-    if (isFeatureEnabled("ban-ip")) {
-        getCommand("ban-ip").setTabCompleter(banIpCmd);
-    }
-    setFeatureExecutor("unban", "unban", new UnbanCommand(Lengbanlist.this));
-    WarnCommand warnCmd = new WarnCommand(Lengbanlist.this);
-    setFeatureExecutor("warn", "warn", warnCmd);
-    if (isFeatureEnabled("warn")) {
-        getCommand("warn").setTabCompleter(warnCmd);
-    }
-    setFeatureExecutor("unwarn", "unwarn", new UnwarnCommand(Lengbanlist.this));
-    setFeatureExecutor("check", "check", new CheckCommand(Lengbanlist.this));
-    setFeatureExecutor("report", "report", new ReportCommand(Lengbanlist.this));
-    setFeatureExecutor("admin", "admin", new AdminReportCommand(Lengbanlist.this));
-    setFeatureExecutor("kick", "kick", new KickCommand(Lengbanlist.this));
-    setFeatureExecutor("info", "info", new InfoCommand(Lengbanlist.this));
-    setFeatureExecutor("chat-filter", "allowmsg", new AllowMsgCommand(Lengbanlist.this));
-    setFeatureExecutor("warn", "warnmsg", new WarnMsgCommand(Lengbanlist.this));
-    setFeatureExecutor("setban", "setban", new SetBanCommand(Lengbanlist.this));
-    HistoryCommand historyCmd = new HistoryCommand(Lengbanlist.this);
-    setFeatureExecutor("history", "history", historyCmd);
-    if (isFeatureEnabled("history")) {
-        getCommand("history").setTabCompleter(historyCmd);
-    }
-    setFeatureExecutor("mute", "mute", new MuteCommand(Lengbanlist.this));
-    setFeatureExecutor("mute", "unmute", new UnmuteCommand(Lengbanlist.this));
-    setFeatureExecutor("mute", "listmute", new ListMuteCommand(Lengbanlist.this));
-    setFeatureExecutor("getip", "getip", new GetIPCommand(Lengbanlist.this));
-    setFeatureExecutor("staffchat", "sc", new StaffChatCommand(Lengbanlist.this));
-    altsCommand = new AltsCommand(this);
-    setFeatureExecutor("alts", "alts", altsCommand);
+    registerFeatureCommands();
 
     getServer().getConsoleSender().sendMessage("§b  _                      ____              _      _     _   ");
     getServer().getConsoleSender().sendMessage("§6 | |                    |  _ \\            | |    (_)   | |  ");
@@ -283,6 +250,57 @@ public void onEnable() {
         long periodTicks = Math.max(20L, getConfig().getInt("expiry-reminder.interval", 60) * 20L);
         expiryReminderTask = SchedulerUtils.runTaskTimerAsynchronously(this, new ExpiryReminderTask(this), 200L, periodTicks);
     }
+}
+
+/**
+ * 重新注册所有 feature 命令。需要从 onEnable、/lban reload、/api/reload 同时调用,
+ * 以确保 features.* 切换后命令能立即生效或被释放。
+ * 注意:Bukkit 中已被 unregisterCommand 释放的命令无法在不重启的情况下重新注册,
+ * 该次刷新后会保持释放状态直到下次重启,并在控制台提示。
+ */
+public void registerFeatureCommands() {
+    BanCommand banCmd = new BanCommand(Lengbanlist.this);
+    setFeatureExecutor("ban", "ban", banCmd);
+    PluginCommand ban = getCommand("ban");
+    if (isFeatureEnabled("ban") && ban != null) {
+        ban.setTabCompleter(banCmd);
+    }
+    BanIpCommand banIpCmd = new BanIpCommand(Lengbanlist.this);
+    setFeatureExecutor("ban-ip", "ban-ip", banIpCmd);
+    PluginCommand banIp = getCommand("ban-ip");
+    if (isFeatureEnabled("ban-ip") && banIp != null) {
+        banIp.setTabCompleter(banIpCmd);
+    }
+    setFeatureExecutor("unban", "unban", new UnbanCommand(Lengbanlist.this));
+    WarnCommand warnCmd = new WarnCommand(Lengbanlist.this);
+    setFeatureExecutor("warn", "warn", warnCmd);
+    PluginCommand warn = getCommand("warn");
+    if (isFeatureEnabled("warn") && warn != null) {
+        warn.setTabCompleter(warnCmd);
+    }
+    setFeatureExecutor("unwarn", "unwarn", new UnwarnCommand(Lengbanlist.this));
+    setFeatureExecutor("check", "check", new CheckCommand(Lengbanlist.this));
+    setFeatureExecutor("report", "report", new ReportCommand(Lengbanlist.this));
+    setFeatureExecutor("admin", "admin", new AdminReportCommand(Lengbanlist.this));
+    setFeatureExecutor("kick", "kick", new KickCommand(Lengbanlist.this));
+    setFeatureExecutor("info", "info", new InfoCommand(Lengbanlist.this));
+    setFeatureExecutor("chat-filter", "allowmsg", new AllowMsgCommand(Lengbanlist.this));
+    setFeatureExecutor("warn", "warnmsg", new WarnMsgCommand(Lengbanlist.this));
+    setFeatureExecutor("setban", "setban", new SetBanCommand(Lengbanlist.this));
+    HistoryCommand historyCmd = new HistoryCommand(Lengbanlist.this);
+    setFeatureExecutor("history", "history", historyCmd);
+    PluginCommand history = getCommand("history");
+    if (isFeatureEnabled("history") && history != null) {
+        history.setTabCompleter(historyCmd);
+    }
+    setFeatureExecutor("mute", "mute", new MuteCommand(Lengbanlist.this));
+    setFeatureExecutor("mute", "unmute", new UnmuteCommand(Lengbanlist.this));
+    setFeatureExecutor("mute", "listmute", new ListMuteCommand(Lengbanlist.this));
+    setFeatureExecutor("getip", "getip", new GetIPCommand(Lengbanlist.this));
+    setFeatureExecutor("staffchat", "sc", new StaffChatCommand(Lengbanlist.this));
+    altsCommand = new AltsCommand(this);
+    setFeatureExecutor("alts", "alts", altsCommand);
+    getLogger().info("功能命令刷新完成(features.* 变更已生效)。");
 }
 
 public boolean reloadWebServer() {

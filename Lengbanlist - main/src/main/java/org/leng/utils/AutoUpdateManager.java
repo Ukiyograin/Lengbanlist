@@ -88,7 +88,7 @@ public class AutoUpdateManager {
         if (currentFileName.startsWith("Lengbanlist-")) {
 
             String namePart = currentFileName.substring(0, currentFileName.lastIndexOf("-"));
-            newFileName = namePart + version + ".jar";
+            newFileName = namePart + "-" + version + ".jar";
         } else {
 
             newFileName = "Lengbanlist-" + version + ".jar";
@@ -203,8 +203,17 @@ public class AutoUpdateManager {
         } else {
 
             logger.info("重命名失败，尝试复制文件...");
-            copyFile(tempFile, newPluginFile);
-            tempFile.delete();
+            try {
+                copyFile(tempFile, newPluginFile);
+            } catch (IOException e) {
+                logger.severe("复制临时文件失败: " + e.getMessage());
+                throw e;
+            } finally {
+                if (!tempFile.delete()) {
+                    logger.warning("无法立即删除临时文件，将在服务器退出时清理: " + tempFile.getName());
+                    tempFile.deleteOnExit();
+                }
+            }
         }
 
 

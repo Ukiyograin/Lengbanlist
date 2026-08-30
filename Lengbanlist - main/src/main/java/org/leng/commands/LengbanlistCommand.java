@@ -140,6 +140,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                         plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
                     }
                 }
+                plugin.registerFeatureCommands();
                 Utils.sendMessage(sender, currentModel.reloadConfig());
                 plugin.reloadWebServer();
                 break;
@@ -1147,7 +1148,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
             JsonObject jsonObject = gson.fromJson(response.toString(), JsonObject.class);
 
             if (jsonObject.has("error")) {
-                plugin.getLogger().warning("IP API返回错误: " + jsonObject.get("reason").getAsString());
+                String errMsg = jsonObject.has("reason") ? jsonObject.get("reason").getAsString() : "(unknown)";
+                plugin.getLogger().warning("IP API返回错误: " + errMsg);
                 return null;
             }
 

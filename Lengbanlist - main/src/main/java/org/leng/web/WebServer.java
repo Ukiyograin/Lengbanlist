@@ -39,8 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -316,8 +315,13 @@ public class WebServer {
     private boolean runSync(HttpExchange exchange, Runnable task) {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
+        AtomicBoolean timedOut = new AtomicBoolean(false);
         org.leng.utils.SchedulerUtils.SchedulerTask scheduled = org.leng.utils.SchedulerUtils.runTask(plugin, () -> {
             try {
+                // 主线程仍可能在 timeout 之后执行 task.run(); 用标志位让它做一个无害的 no-op
+                if (timedOut.get()) {
+                    return;
+                }
                 task.run();
             } catch (Throwable t) {
                 error.set(t);
@@ -327,13 +331,14 @@ public class WebServer {
         });
         try {
             if (!latch.await(5, TimeUnit.SECONDS)) {
-                scheduled.cancel();
-                sendError(exchange, 504, "主线程繁忙，操作可能已在后台执行，请稍后在列表中确认结果，不要重复提交");
+                timedOut.set(true);
+                // 主线程任务一旦排队无法真正取消,只能依靠上面的标志位做 no-op
+                sendError(exchange, 504, "主线程繁忙，操作可能已在后台执行，请在管理列表确认结果后再决定是否重试，避免重复提交");
                 return false;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            scheduled.cancel();
+            timedOut.set(true);
             sendError(exchange, 500, "操作被中断");
             return false;
         }
@@ -1181,6 +1186,7 @@ public class WebServer {
                         plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
                     }
                 }
+                plugin.registerFeatureCommands();
             });
             if (!completed) return;
 

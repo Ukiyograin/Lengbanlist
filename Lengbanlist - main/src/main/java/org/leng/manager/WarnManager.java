@@ -60,14 +60,14 @@ public class WarnManager {
                 .collect(Collectors.toList());
     }
 
-    public boolean unwarnPlayer(String target, int warnId) {
+    public boolean unwarnPlayer(String target, int warnId, org.bukkit.command.CommandSender actor) {
         List<WarnEntry> playerWarnings = getAllWarnings(target);
         if (warnId > 0 && warnId <= playerWarnings.size()) {
             WarnEntry entry = playerWarnings.get(warnId - 1);
             if (!entry.isRevoked()) {
                 entry.revoke();
                 db.updateWarningRevoked(entry.getId(), true);
-                plugin.getAuditManager().log("取消警告", null, target, "警告ID: " + entry.getId());
+                plugin.getAuditManager().log("取消警告", org.leng.utils.Utils.getSenderName(actor), target, "警告ID: " + entry.getId());
                 checkUnbanIfNecessary(target);
                 return true;
             }

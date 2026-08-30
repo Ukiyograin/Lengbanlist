@@ -312,7 +312,7 @@ public class RollbackManager {
                 continue;
             }
             if (warn.isRevoked()) {
-                warn.revoke();
+                warn.unrevoke();
                 plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), false);
                 return true;
             }

@@ -59,9 +59,9 @@ public class DatabaseManager {
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl("jdbc:sqlite:" + dbFile.getAbsolutePath());
             config.setMaximumPoolSize(1);
-            config.setConnectionInitSql("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000");
+            // SQLite JDBC 单条 initSql 仅支持一句 PRAGMA,其余在下方 initialize 中单独跑
+            config.setConnectionInitSql("PRAGMA foreign_keys = ON");
             dataSource = new HikariDataSource(config);
-            execute("PRAGMA foreign_keys = ON");
             execute("PRAGMA journal_mode = WAL");
             execute("PRAGMA busy_timeout = 5000");
         } else if ("mysql".equalsIgnoreCase(type)) {
@@ -70,7 +70,10 @@ public class DatabaseManager {
             int port = plugin.getConfig().getInt("database.mysql.port", 3306);
             String database = plugin.getConfig().getString("database.mysql.database", "lengbanlist");
             String username = plugin.getConfig().getString("database.mysql.username", "root");
-            String password = plugin.getConfig().getString("database.mysql.password", "password");
+            String password = plugin.getConfig().getString("database.mysql.password", "");
+            if (password == null || password.isEmpty()) {
+                throw new SQLException("未配置 MySQL 密码 (database.mysql.password)，请在 config.yml 中显式设置后再启动。");
+            }
             String url = "jdbc:mysql://" + host + ":" + port + "/" + database + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=utf8";
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl(url);
@@ -180,13 +183,18 @@ public class DatabaseManager {
         } else {
             execute("INSERT OR IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
         }
+        // 与 addAuditLogChained/verifyAudit 保持一致:row[N].prev_hash = hash(row[N-1].prev_hash, row[N-1].data)
         String prevHash = ZERO_HASH;
+        AuditEntry prev = null;
         int offset = 0;
         List<AuditEntry> batch;
         while (!(batch = getAuditLogsAsc(offset, 1000)).isEmpty()) {
             for (AuditEntry row : batch) {
-                prevHash = hashRow(prevHash, row.getTimestamp(), row.getActor(), row.getAction(), row.getTarget(), row.getReason(), row.isSuccess());
+                if (prev != null) {
+                    prevHash = hashRow(prevHash, prev.getTimestamp(), prev.getActor(), prev.getAction(), prev.getTarget(), prev.getReason(), prev.isSuccess());
+                }
                 executeUpdate("UPDATE audit_log SET prev_hash = ? WHERE id = ?", prevHash, row.getId());
+                prev = row;
             }
             offset += batch.size();
         }

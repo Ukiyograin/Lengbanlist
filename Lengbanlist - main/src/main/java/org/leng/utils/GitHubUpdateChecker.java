@@ -162,7 +162,7 @@ public class GitHubUpdateChecker {
     public static String generateNewFileName(String currentFileName, String newVersion) {
         if (currentFileName.startsWith("Lengbanlist-") && currentFileName.endsWith(".jar")) {
             String baseName = currentFileName.substring(0, currentFileName.lastIndexOf("-"));
-            return baseName + newVersion + ".jar";
+            return baseName + "-" + newVersion + ".jar";
         }
         return getLocalFileName(newVersion);
     }

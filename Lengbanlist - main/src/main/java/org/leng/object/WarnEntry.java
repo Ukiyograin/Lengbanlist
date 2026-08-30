@@ -54,4 +54,8 @@ public class WarnEntry {
     public void revoke() {
         this.revoked = true;
     }
+
+    public void unrevoke() {
+        this.revoked = false;
+    }
 }

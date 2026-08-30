@@ -67,7 +67,6 @@ public class ReportManager {
         }
         entry.setStatus("已处理");
         plugin.getBanManager().publishAppliedPlayerBan(banEntry, false);
-        plugin.getAuditManager().log("举报转封禁", staff, entry.getTarget(), reason);
         Player reporterPlayer = plugin.getServer().getPlayer(entry.getReporter());
         if (reporterPlayer != null) {
             long durationMillis = endTime == Long.MAX_VALUE ? Long.MAX_VALUE : endTime - System.currentTimeMillis();

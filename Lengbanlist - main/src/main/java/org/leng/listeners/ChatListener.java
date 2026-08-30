@@ -35,7 +35,11 @@ public class ChatListener implements Listener {
             event.setCancelled(true);
             String wizardMessage = event.getMessage();
             SchedulerUtils.runTask(plugin, player, () -> {
-                org.bukkit.command.CommandExecutor executor = plugin.getCommand("lban").getExecutor();
+                org.bukkit.command.PluginCommand cmd = plugin.getCommand("lban");
+                if (cmd == null) {
+                    return;
+                }
+                org.bukkit.command.CommandExecutor executor = cmd.getExecutor();
                 if (executor instanceof LengbanlistCommand) {
                     ((LengbanlistCommand) executor).handleChatWizard(player, wizardMessage);
                 }
