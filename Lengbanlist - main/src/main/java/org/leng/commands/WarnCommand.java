@@ -41,8 +41,14 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
         }
 
 
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = Arrays.copyOfRange(args, 1, args.length);
+        }
+
         if (args.length < 2) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /lban warn <玩家名/IP> <原因>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /warn [-s] <玩家名/IP> <原因>");
             return false;
         }
 
@@ -69,13 +75,16 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
             String normalized = IpMatcher.normalizeIpOrCidr(target);
             if (normalized != null) target = normalized;
             warnManager.warnPlayer(target, Utils.getSenderName(sender), reason);
-            Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
+            if (!silent) {
+                Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
+            }
             return true;
         }
 
-
         warnManager.warnPlayer(target, Utils.getSenderName(sender), reason);
-        Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
+        if (!silent) {
+            Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
+        }
 
         return true;
     }

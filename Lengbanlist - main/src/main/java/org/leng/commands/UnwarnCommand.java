@@ -37,8 +37,14 @@ public class UnwarnCommand extends Command implements CommandExecutor {
         }
 
 
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = java.util.Arrays.copyOfRange(args, 1, args.length);
+        }
+
         if (args.length < 1) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /lban unwarn <玩家名/IP> [警告ID]");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /unwarn [-s] <玩家名/IP> [警告ID]");
             return false;
         }
 
@@ -64,7 +70,9 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                         entry.revoke();
                         plugin.getDatabaseManager().updateWarningRevoked(entry.getId(), true);
                         plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, "警告ID: " + warnId);
-                        Utils.sendMessage(sender, plugin.prefix() + "§a警告 #" + warnId + " 已移除");
+                        if (!silent) {
+                            Utils.sendMessage(sender, plugin.prefix() + "§a警告 #" + warnId + " 已移除");
+                        }
 
 
                         warnManager.checkUnbanIfNecessary(target);
@@ -83,7 +91,9 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                     }
                 }
                 plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, "全部警告");
-                Utils.sendMessage(sender, plugin.prefix() + "§a已移除玩家 " + target + " 的所有警告");
+                if (!silent) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§a已移除玩家 " + target + " 的所有警告");
+                }
 
 
                 warnManager.checkUnbanIfNecessary(target);

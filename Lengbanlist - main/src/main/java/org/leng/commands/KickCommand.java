@@ -35,11 +35,16 @@ public class KickCommand implements CommandExecutor, TabCompleter {
         }
 
 
-        if (args.length < 1) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /kick <玩家> [原因]");
-            return true;
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = Arrays.copyOfRange(args, 1, args.length);
         }
 
+        if (args.length < 1) {
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /kick [-s] <玩家> [原因]");
+            return true;
+        }
 
         Player target = Bukkit.getPlayer(args[0]);
         if (target == null) {
@@ -60,7 +65,9 @@ public class KickCommand implements CommandExecutor, TabCompleter {
 
         SchedulerUtils.runTask(plugin, target, () -> target.kickPlayer(model.getKickMessage(reason)));
         plugin.getAuditManager().log("踢出", Utils.getSenderName(sender), target.getName(), reason);
-        Utils.sendMessage(sender, plugin.prefix() + model.onKickSuccess(target.getName(), reason));
+        if (!silent) {
+            Utils.sendMessage(sender, plugin.prefix() + model.onKickSuccess(target.getName(), reason));
+        }
 
         return true;
     }

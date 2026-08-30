@@ -36,11 +36,16 @@ public class UnbanCommand extends Command implements CommandExecutor {
         }
 
 
-        if (args.length < 1) {
-            Utils.sendMessage(sender, "§c用法错误喵: /unban <玩家名/IP>");
-            return false;
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = java.util.Arrays.copyOfRange(args, 1, args.length);
         }
 
+        if (args.length < 1) {
+            Utils.sendMessage(sender, "§c用法错误喵: /unban [-s] <玩家名/IP>");
+            return false;
+        }
 
         if (args[0].contains(".")) {
             String normalized = IpMatcher.normalizeIpOrCidr(args[0]);
@@ -49,13 +54,13 @@ public class UnbanCommand extends Command implements CommandExecutor {
                 return false;
             }
             BanManager.BanMutationResult result = plugin.getBanManager()
-                    .tryUnbanIp(normalized, Utils.getSenderName(sender), false);
+                    .tryUnbanIp(normalized, Utils.getSenderName(sender), silent);
             if (!result.isApplied()) {
                 BanMutationFeedback.sendFailure(sender, result, normalized, true);
             }
         } else {
             BanManager.BanMutationResult result = plugin.getBanManager()
-                    .tryUnbanPlayer(args[0], Utils.getSenderName(sender), false);
+                    .tryUnbanPlayer(args[0], Utils.getSenderName(sender), silent);
             if (!result.isApplied()) {
                 BanMutationFeedback.sendFailure(sender, result, args[0], false);
             }

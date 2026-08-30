@@ -441,11 +441,17 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                if (args.length < 3) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式：/lban warn <玩家名/IP> <原因>");
+                boolean silentWarn = false;
+                int warnOffset = 1;
+                if (args.length > 1 && args[1].equalsIgnoreCase("-s")) {
+                    silentWarn = true;
+                    warnOffset = 2;
+                }
+                if (args.length < warnOffset + 2) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式：/lban warn [-s] <玩家名/IP> <原因>");
                     return true;
                 }
-                String warnTarget = args[1];
+                String warnTarget = args[warnOffset];
                 String normalizedWarn = IpMatcher.normalizeIpOrCidr(warnTarget);
                 boolean isIpWarnTarget = normalizedWarn != null;
                 if (isIpWarnTarget) warnTarget = normalizedWarn;
@@ -453,9 +459,11 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(warnTarget));
                     return true;
                 }
-                String reason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+                String reason = String.join(" ", Arrays.copyOfRange(args, warnOffset + 1, args.length));
                 plugin.getWarnManager().warnPlayer(warnTarget, Utils.getSenderName(sender), reason);
-                Utils.sendMessage(sender, currentModel.addWarn(warnTarget, reason));
+                if (!silentWarn) {
+                    Utils.sendMessage(sender, currentModel.addWarn(warnTarget, reason));
+                }
                 break;
             case "unwarn":
                 if (!plugin.isFeatureEnabled("unwarn")) {
@@ -466,11 +474,17 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                if (args.length < 2) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式：/lban unwarn <玩家名>");
+                boolean silentUnwarn = false;
+                int unwarnOffset = 1;
+                if (args.length > 1 && args[1].equalsIgnoreCase("-s")) {
+                    silentUnwarn = true;
+                    unwarnOffset = 2;
+                }
+                if (args.length < unwarnOffset + 1) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式：/lban unwarn [-s] <玩家名>");
                     return true;
                 }
-                String unwarnTarget = args[1];
+                String unwarnTarget = args[unwarnOffset];
                 String normalizedUnwarn = IpMatcher.normalizeIpOrCidr(unwarnTarget);
                 if (normalizedUnwarn != null) unwarnTarget = normalizedUnwarn;
                 List<WarnEntry> warnings = plugin.getWarnManager().getActiveWarnings(unwarnTarget);
@@ -491,15 +505,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     }
                     plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), unwarnTarget, ids.toString());
                     plugin.getWarnManager().checkUnbanIfNecessary(unwarnTarget);
-                } else {
-                    for (WarnEntry warn : warnings) {
-                        if (!warn.isRevoked()) {
-                            warn.revoke();
-                            plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), true);
-                        }
-                    }
                 }
-                Utils.sendMessage(sender, currentModel.removeWarn(unwarnTarget));
+                if (!silentUnwarn) {
+                    Utils.sendMessage(sender, currentModel.removeWarn(unwarnTarget));
+                }
                 break;
             case "report":
                 if (!plugin.isFeatureEnabled("report")) {
