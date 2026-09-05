@@ -3,6 +3,7 @@ package org.leng.web;
 import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import org.bukkit.entity.Entity;
 import org.leng.Lengbanlist;
 
 import java.util.concurrent.CountDownLatch;
@@ -83,6 +84,49 @@ public abstract class WebController {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             timedOut.set(true);
+            WebResponse.sendError(exchange, 500, "操作被中断");
+            return false;
+        }
+        if (error.get() != null) {
+            WebResponse.sendError(exchange, 500, "操作失败");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Folia 真原生调度：在 Folia 下走 entity scheduler（确保在同一 region 内执行），
+     * 否则 fallback 到 {@link #runSync(HttpExchange, Runnable)}。非 Folia 下 entity 参数被忽略。
+     */
+    protected boolean runSync(HttpExchange exchange, Entity entity, Runnable task) {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        AtomicBoolean timedOut = new AtomicBoolean(false);
+        Runnable wrapped = () -> {
+            try {
+                if (timedOut.get()) return;
+                task.run();
+            } catch (Throwable t) {
+                error.set(t);
+            } finally {
+                latch.countDown();
+            }
+        };
+        org.leng.utils.SchedulerUtils.SchedulerTask scheduled =
+                entity != null && org.leng.utils.SchedulerUtils.isFolia()
+                        ? org.leng.utils.SchedulerUtils.runTask(plugin, entity, wrapped)
+                        : org.leng.utils.SchedulerUtils.runTask(plugin, wrapped);
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                timedOut.set(true);
+                scheduled.cancel();
+                WebResponse.sendError(exchange, 504, "主线程繁忙,操作可能已在后台执行,请在管理列表确认结果后再决定是否重试,避免重复提交");
+                return false;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            timedOut.set(true);
+            scheduled.cancel();
             WebResponse.sendError(exchange, 500, "操作被中断");
             return false;
         }
