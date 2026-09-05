@@ -1,5 +1,6 @@
 package org.leng.web;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
@@ -11,11 +12,12 @@ import org.leng.object.BanIpEntry;
 import org.leng.utils.TimeUtils;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 封禁/解封 controller。
- * 处理 /api/ban、/api/unban。
+ * 处理 /api/ban、/api/unban、/api/bans、/api/ipbans。
  */
 public class BanController extends WebController {
 
@@ -27,6 +29,8 @@ public class BanController extends WebController {
     public void registerRoutes(HttpServer server) {
         server.createContext("/api/ban", this::handleBan);
         server.createContext("/api/unban", this::handleUnban);
+        server.createContext("/api/bans", this::handleBanList);
+        server.createContext("/api/ipbans", this::handleIpBanList);
     }
 
     private void handleBan(HttpExchange exchange) {
@@ -134,6 +138,64 @@ public class BanController extends WebController {
             WebResponse.sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
             WebResponse.sendError(exchange, 400, "解封失败: " + e.getMessage());
+        }
+    }
+
+    private void handleBanList(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            WebResponse.handleOptions(exchange);
+            return;
+        }
+        if (!requireAuth(exchange)) return;
+
+        try {
+            List<BanEntry> bans = plugin.getBanManager().getBanList();
+            JsonArray arr = new JsonArray();
+            for (BanEntry b : bans) {
+                JsonObject o = new JsonObject();
+                o.addProperty("target", b.target());
+                o.addProperty("staff", b.staff());
+                o.addProperty("end_time", b.time());
+                o.addProperty("reason", b.reason());
+                o.addProperty("active", b.isActive());
+                o.addProperty("remaining", TimeUtils.formatDuration(b.time() - System.currentTimeMillis()));
+                arr.add(o);
+            }
+            JsonObject result = new JsonObject();
+            result.add("bans", arr);
+            result.addProperty("total", arr.size());
+            WebResponse.sendJson(exchange, 200, result.toString());
+        } catch (Exception e) {
+            WebResponse.sendError(exchange, 500, "查询封禁列表失败");
+        }
+    }
+
+    private void handleIpBanList(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            WebResponse.handleOptions(exchange);
+            return;
+        }
+        if (!requireAuth(exchange)) return;
+
+        try {
+            List<BanIpEntry> ipBans = plugin.getBanManager().getBanIpList();
+            JsonArray arr = new JsonArray();
+            for (BanIpEntry b : ipBans) {
+                JsonObject o = new JsonObject();
+                o.addProperty("ip", b.ip());
+                o.addProperty("staff", b.staff());
+                o.addProperty("end_time", b.time());
+                o.addProperty("reason", b.reason());
+                o.addProperty("active", b.isActive());
+                o.addProperty("remaining", TimeUtils.formatDuration(b.time() - System.currentTimeMillis()));
+                arr.add(o);
+            }
+            JsonObject result = new JsonObject();
+            result.add("ip_bans", arr);
+            result.addProperty("total", arr.size());
+            WebResponse.sendJson(exchange, 200, result.toString());
+        } catch (Exception e) {
+            WebResponse.sendError(exchange, 500, "查询 IP 封禁列表失败");
         }
     }
 }

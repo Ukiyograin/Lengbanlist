@@ -1,5 +1,6 @@
 package org.leng.web;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
@@ -9,11 +10,12 @@ import org.leng.object.MuteEntry;
 import org.leng.utils.TimeUtils;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 禁言/解禁 controller。
- * 处理 /api/mute、/api/unmute。
+ * 处理 /api/mute、/api/unmute、/api/mutes。
  */
 public class MuteController extends WebController {
 
@@ -25,6 +27,7 @@ public class MuteController extends WebController {
     public void registerRoutes(HttpServer server) {
         server.createContext("/api/mute", this::handleMute);
         server.createContext("/api/unmute", this::handleUnmute);
+        server.createContext("/api/mutes", this::handleMuteList);
     }
 
     private void handleMute(HttpExchange exchange) {
@@ -120,6 +123,35 @@ public class MuteController extends WebController {
             WebResponse.sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
             WebResponse.sendError(exchange, 400, "解除禁言失败: " + e.getMessage());
+        }
+    }
+
+    private void handleMuteList(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            WebResponse.handleOptions(exchange);
+            return;
+        }
+        if (!requireAuth(exchange)) return;
+
+        try {
+            List<MuteEntry> mutes = plugin.getMuteManager().getMuteList();
+            JsonArray arr = new JsonArray();
+            for (MuteEntry m : mutes) {
+                JsonObject o = new JsonObject();
+                o.addProperty("target", m.target());
+                o.addProperty("staff", m.staff());
+                o.addProperty("end_time", m.time());
+                o.addProperty("reason", m.reason());
+                o.addProperty("active", m.time() > System.currentTimeMillis());
+                o.addProperty("remaining", TimeUtils.formatDuration(m.time() - System.currentTimeMillis()));
+                arr.add(o);
+            }
+            JsonObject result = new JsonObject();
+            result.add("mutes", arr);
+            result.addProperty("total", arr.size());
+            WebResponse.sendJson(exchange, 200, result.toString());
+        } catch (Exception e) {
+            WebResponse.sendError(exchange, 500, "查询禁言列表失败");
         }
     }
 }
