@@ -73,12 +73,10 @@ public class WebServer {
             executor = Executors.newFixedThreadPool(Math.max(4, Runtime.getRuntime().availableProcessors() * 2));
             server.setExecutor(executor);
 
-            server.createContext("/api/login", this::handleLogin);
-            server.createContext("/api/logout", this::handleLogout);
+            // 登录/登出走 AuthController（见下方 registerAllControllers）
             server.createContext("/api/players", this::handlePlayers);
             server.createContext("/api/online", this::handleOnline);
-            server.createContext("/api/ban", this::handleBan);
-            server.createContext("/api/unban", this::handleUnban);
+            // ban/unban 走 BanController（见下方 registerAllControllers）
             server.createContext("/api/kick", this::handleKick);
             server.createContext("/api/stats", this::handleStats);
             server.createContext("/api/history", this::handleHistory);
@@ -97,6 +95,9 @@ public class WebServer {
             server.createContext("/api/reload", this::handleReload);
             server.createContext("/api/broadcast", this::handleBroadcast);
             server.createContext("/", this::handleRoot);
+
+            // 注册各 controller（auth/ban 已迁移到独立类）
+            registerAllControllers(server);
 
             server.start();
             running = true;
@@ -150,144 +151,17 @@ public class WebServer {
         return running;
     }
 
-
-    private static class AuthManager {
-
-        private final String secret;
-        private final String username;
-        private final String passwordHash;
-        private final Set<String> revokedTokens = ConcurrentHashMap.newKeySet();
-        private static final long TOKEN_EXP_MS = 86400000L;
-
-        AuthManager(String secret, String username, String password) {
-            this.secret = secret;
-            this.username = username;
-            this.passwordHash = sha256(password);
-        }
-
-        String login(String user, String pass) {
-            if (!username.equals(user) || !sha256(pass).equals(passwordHash)) return null;
-            return createToken(username);
-        }
-
-        boolean validateToken(String token) {
-            if (token == null || revokedTokens.contains(token)) return false;
-            return parseToken(token) != null;
-        }
-
-        void revokeToken(String token) {
-            if (token != null && !token.isEmpty()) {
-                revokedTokens.add(token);
-            }
-        }
-
-        String getUsernameFromToken(String token) {
-            JsonObject payload = parseToken(token);
-            return payload != null ? payload.get("sub").getAsString() : null;
-        }
-
-        /** 解析当前会话操作者：正常返回登录用户名；默认 admin 等非玩家身份统一记为 CONSOLE。 */
-        String resolveActor(String token) {
-            String name = getUsernameFromToken(token);
-            if (name == null || name.trim().isEmpty()) {
-                return "CONSOLE";
-            }
-            return "admin".equals(name) ? "CONSOLE" : name.trim();
-        }
-
-        private String createToken(String subject) {
-            JsonObject header = new JsonObject();
-            header.addProperty("alg", "HS256");
-            header.addProperty("typ", "JWT");
-
-            JsonObject payload = new JsonObject();
-            long now = System.currentTimeMillis() / 1000;
-            payload.addProperty("sub", subject);
-            payload.addProperty("iat", now);
-            payload.addProperty("exp", now + TOKEN_EXP_MS / 1000);
-
-            String encodedHeader = b64url(header.toString());
-            String encodedPayload = b64url(payload.toString());
-            String signingInput = encodedHeader + "." + encodedPayload;
-            String signature = hmacSha256(signingInput, secret);
-
-            return signingInput + "." + signature;
-        }
-
-        private JsonObject parseToken(String token) {
-            try {
-                String[] parts = token.split("\\.");
-                if (parts.length != 3) return null;
-                if (!hmacSha256(parts[0] + "." + parts[1], secret).equals(parts[2])) return null;
-
-                String json = new String(Base64.getUrlDecoder().decode(parts[1]));
-                JsonObject payload = JsonParser.parseString(json).getAsJsonObject();
-                if (System.currentTimeMillis() / 1000 > payload.get("exp").getAsLong()) return null;
-                return payload;
-            } catch (Exception e) {
-                return null;
-            }
-        }
-
-        private static String hmacSha256(String data, String key) {
-            try {
-                Mac mac = Mac.getInstance("HmacSHA256");
-                mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-                return b64url(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private static String sha256(String s) {
-            try {
-                byte[] hash = MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
-                StringBuilder hex = new StringBuilder();
-                for (byte b : hash) hex.append(String.format("%02x", b));
-                return hex.toString();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private static String b64url(String data) {
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(data.getBytes(StandardCharsets.UTF_8));
-        }
-
-        private static String b64url(byte[] data) {
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(data);
-        }
-
+    /**
+     * 注册各 controller 到 HTTP server。当前仅 AuthController 已迁移;
+     * 其余端点暂留在 WebServer 内,后续按相同模式逐个拆分。
+     */
+    private void registerAllControllers(com.sun.net.httpserver.HttpServer server) {
+        new AuthController(plugin, authManager).registerRoutes(server);
+        new BanController(plugin, authManager).registerRoutes(server);
     }
 
 
-    private static class RateLimiter {
 
-        private final ConcurrentHashMap<String, AtomicLongArray> requests = new ConcurrentHashMap<>();
-        private static final int MAX_REQUESTS = 60;
-        private static final long WINDOW_MS = 60000L;
-
-        boolean isRateLimited(String ip) {
-            if (requests.size() > 1024) {
-                cleanup();
-            }
-            long now = System.currentTimeMillis();
-            AtomicLongArray window = requests.compute(ip, (key, val) -> {
-                if (val == null || now - val.get(0) > WINDOW_MS) {
-                    return new AtomicLongArray(new long[]{now, 1});
-                }
-                val.getAndIncrement(1);
-                return val;
-            });
-            return window.get(1) > MAX_REQUESTS;
-        }
-
-        void cleanup() {
-            long cutoff = System.currentTimeMillis() - WINDOW_MS;
-            requests.entrySet().removeIf(e -> e.getValue().get(0) < cutoff);
-        }
-
-    }
 
     private final RateLimiter rateLimiter = new RateLimiter();
 
@@ -451,62 +325,6 @@ public class WebServer {
     }
 
 
-    private void handleLogin(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            handleOptions(exchange);
-            return;
-        }
-        if (!"POST".equals(exchange.getRequestMethod())) {
-            sendError(exchange, 405, "仅支持 POST");
-            return;
-        }
-        if (!checkRateLimit(exchange)) return;
-        try {
-            JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
-            String token = authManager.login(json.get("username").getAsString(), json.get("password").getAsString());
-            if (token == null) {
-                sendError(exchange, 401, "用户名或密码错误");
-                return;
-            }
-            sendJson(exchange, 200, gson.toJson(new LoginResponse(token, json.get("username").getAsString())));
-        } catch (IOException e) {
-            sendError(exchange, 413, e.getMessage());
-        } catch (Exception e) {
-            sendError(exchange, 400, "请求格式错误");
-        }
-    }
-
-    private static class LoginResponse {
-
-        private final String token;
-        private final String username;
-
-        LoginResponse(String token, String username) {
-            this.token = token;
-            this.username = username;
-        }
-
-    }
-
-    private void handleLogout(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            handleOptions(exchange);
-            return;
-        }
-        if (!"POST".equals(exchange.getRequestMethod())) {
-            sendError(exchange, 405, "仅支持 POST");
-            return;
-        }
-        if (!checkRateLimit(exchange)) return;
-        String token = extractToken(exchange);
-        if (token != null) {
-            authManager.revokeToken(token);
-        }
-        JsonObject result = new JsonObject();
-        result.addProperty("success", true);
-        result.addProperty("message", "已注销，令牌已吊销");
-        sendJson(exchange, 200, result.toString());
-    }
 
     private void handlePlayers(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
@@ -691,127 +509,6 @@ public class WebServer {
             sendJson(exchange, 200, result.toString());
         } catch (Exception e) {
             sendError(exchange, 500, "查询历史失败");
-        }
-    }
-
-    private void handleBan(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            handleOptions(exchange);
-            return;
-        }
-        if (!"POST".equals(exchange.getRequestMethod())) {
-            sendError(exchange, 405, "仅支持 POST");
-            return;
-        }
-        if (!requireAuth(exchange)) return;
-
-        try {
-            JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
-            String target = json.get("target").getAsString();
-            String duration = json.has("duration") ? json.get("duration").getAsString() : "7d";
-            String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
-
-            String staff = authManager.resolveActor(extractToken(exchange));
-            final String finalStaff = staff;
-
-            long durationMs = TimeUtils.parseTime(duration);
-            if (durationMs <= 0) durationMs = TimeUtils.daysToMillis(7);
-            long endTime = TimeUtils.calculateEndTime(durationMs);
-
-            String feature = target.contains(".") ? "ban-ip" : "ban";
-            if (!requireFeature(exchange, feature)) return;
-
-            // 校验 IP 合法性，避免非法字符串以"IP 封禁"名义入库
-            if (target.contains(".") && !org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
-                sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
-                return;
-            }
-
-            AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
-            AtomicReference<BanManager.BanMutationResult> mutationResult =
-                    new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
-            boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
-                    permissionDenied.set(true);
-                    return;
-                }
-                if (target.contains(".")) {
-                    mutationResult.set(plugin.getBanManager().tryBanIp(
-                            new BanIpEntry(target, finalStaff, endTime, reason, false), false));
-                } else {
-                    mutationResult.set(plugin.getBanManager().tryBanPlayer(
-                            new BanEntry(target, finalStaff, endTime, reason, false), false));
-                }
-            });
-            if (!completed) return;
-            if (permissionDenied.get()) {
-                sendError(exchange, 403, "目标权重高于操作者，无法执行");
-                return;
-            }
-            if (sendMutationFailure(exchange, mutationResult.get(), target)) return;
-
-            JsonObject result = new JsonObject();
-            result.addProperty("success", true);
-            result.addProperty("message", target + " 已被封禁，时长: " + TimeUtils.formatDuration(durationMs));
-            sendJson(exchange, 200, result.toString());
-        } catch (IOException e) {
-            sendError(exchange, 413, e.getMessage());
-        } catch (Exception e) {
-            sendError(exchange, 400, "封禁失败: " + e.getMessage());
-        }
-    }
-
-    private void handleUnban(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            handleOptions(exchange);
-            return;
-        }
-        if (!"POST".equals(exchange.getRequestMethod())) {
-            sendError(exchange, 405, "仅支持 POST");
-            return;
-        }
-        if (!requireAuth(exchange) || !requireFeature(exchange, "unban")) return;
-
-        try {
-            JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
-            String target = json.get("target").getAsString();
-            String actor = authManager.resolveActor(extractToken(exchange));
-            final String finalActor = actor;
-
-            if (target.contains(".") && !org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
-                sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
-                return;
-            }
-
-            AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
-            AtomicReference<BanManager.BanMutationResult> mutationResult =
-                    new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
-            boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
-                    permissionDenied.set(true);
-                    return;
-                }
-                if (target.contains(".")) {
-                    mutationResult.set(plugin.getBanManager().tryUnbanIp(target, finalActor, false));
-                } else {
-                    mutationResult.set(plugin.getBanManager().tryUnbanPlayer(target, finalActor, false));
-                }
-            });
-            if (!completed) return;
-            if (permissionDenied.get()) {
-                sendError(exchange, 403, "目标权重高于操作者，无法执行");
-                return;
-            }
-            if (sendMutationFailure(exchange, mutationResult.get(), target)) return;
-
-            JsonObject result = new JsonObject();
-            result.addProperty("success", true);
-            result.addProperty("message", target + " 已被解封");
-            sendJson(exchange, 200, result.toString());
-        } catch (IOException e) {
-            sendError(exchange, 413, e.getMessage());
-        } catch (Exception e) {
-            sendError(exchange, 400, "解封失败: " + e.getMessage());
         }
     }
 
