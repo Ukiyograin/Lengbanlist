@@ -52,6 +52,7 @@ public class MuteManager {
                 }
                 mutationGeneration++;
                 plugin.getAuditManager().log("修改禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
+                org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistMuteEvent(muteEntry));
                 return muteEntry.getTime();
             }
             db.upsertMute(muteEntry);
@@ -61,6 +62,7 @@ public class MuteManager {
             }
             mutationGeneration++;
             plugin.getAuditManager().log("禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
+            org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistMuteEvent(muteEntry));
             return muteEntry.getTime();
         }
     }
@@ -120,6 +122,7 @@ public class MuteManager {
             mutationGeneration++;
             if (wasMuted) {
                 plugin.getAuditManager().log("解除禁言", actor, target, "");
+                org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistUnmuteEvent(target, actor == null ? "System" : actor));
             }
         }
     }

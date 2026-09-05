@@ -191,6 +191,9 @@ public void onEnable() {
     });
     getServer().getConsoleSender().sendMessage(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName());
 
+    // 注册公共 API 给其他插件使用
+    org.leng.api.LengbanlistAPI.register(Lengbanlist.this);
+
     getServer().getPluginManager().registerEvents(new PlayerJoinListener(Lengbanlist.this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new ChatListener(Lengbanlist.this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new OpJoinListener(Lengbanlist.this), Lengbanlist.this);
@@ -328,6 +331,9 @@ public void onDisable() {
         syncManager.stopAutoSync();
     }
     if (webServer != null) webServer.stop();
+
+    // 卸载 API 注册,防止其他插件持有已失效引用
+    org.leng.api.LengbanlistAPI.unregister();
 
     if (eulaAgreed) {
         shutdownStorage();

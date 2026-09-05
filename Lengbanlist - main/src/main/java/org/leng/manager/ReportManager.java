@@ -19,6 +19,7 @@ public class ReportManager {
 
     public void addReport(ReportEntry report) {
         updateReport(report);
+        org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistReportEvent(report));
     }
 
     public void updateReport(ReportEntry report) {

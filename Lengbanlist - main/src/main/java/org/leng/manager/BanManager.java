@@ -58,6 +58,9 @@ public class BanManager {
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
         plugin.getAuditManager().log("封禁", banEntry.getStaff(), banEntry.getTarget(), banEntry.getReason());
 
+        // 触发自定义事件,允许其他插件响应
+        org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistBanEvent(banEntry, silent));
+
         Player targetPlayer = Bukkit.getPlayer(banEntry.getTarget());
         if (targetPlayer != null) {
             String kickMessage = String.format(
@@ -101,6 +104,8 @@ public class BanManager {
         String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), durationDays, banIpEntry.getReason());
         plugin.getAuditManager().log("封禁IP", banIpEntry.getStaff(), banIpEntry.getIp(), banIpEntry.getReason());
 
+        org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistBanIpEvent(banIpEntry, silent));
+
         if (!silent) {
             if (banIpResult != null && !banIpResult.isEmpty()) {
                 Utils.broadcast(banIpResult);
@@ -119,6 +124,7 @@ public class BanManager {
             Model currentModel = plugin.getModelManager().getCurrentModel();
             String unbanResult = currentModel.removeBan(target);
             plugin.getAuditManager().log("解封", actor, target, "");
+            org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistUnbanEvent(target, false, actor));
             if (!silent) {
                 if (unbanResult != null && !unbanResult.isEmpty()) {
                     Utils.broadcast(unbanResult);
@@ -138,6 +144,7 @@ public class BanManager {
             Model currentModel = plugin.getModelManager().getCurrentModel();
             String unbanIpResult = currentModel.removeBanIp(ip);
             plugin.getAuditManager().log("解封IP", actor, ip, "");
+            org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistUnbanEvent(ip, true, actor));
             if (!silent) {
                 if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
                     Utils.broadcast(unbanIpResult);

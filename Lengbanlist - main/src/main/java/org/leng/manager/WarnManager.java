@@ -29,6 +29,7 @@ public class WarnManager {
         WarnEntry entry = new WarnEntry(player, staff, System.currentTimeMillis(), reason);
         db.upsertWarning(entry);
         plugin.getAuditManager().log("警告", staff, player, reason);
+        org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistWarnEvent(entry));
         checkAutoBan(player);
         if (plugin.isFeatureEnabled("offline-warn") && !player.contains(".")) {
             Player targetPlayer = plugin.getServer().getPlayer(player);
@@ -68,6 +69,7 @@ public class WarnManager {
                 entry = entry.revoke();
                 db.updateWarningRevoked(entry.getId(), true);
                 plugin.getAuditManager().log("取消警告", org.leng.utils.Utils.getSenderName(actor), target, "警告ID: " + entry.getId());
+                org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistUnwarnEvent(target, entry.getId(), org.leng.utils.Utils.getSenderName(actor)));
                 checkUnbanIfNecessary(target);
                 return true;
             }
