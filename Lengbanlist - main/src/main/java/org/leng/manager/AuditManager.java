@@ -235,23 +235,14 @@ public class AuditManager {
                 }
                 payload.put("embeds", new JSONArray().put(embed));
 
-                HttpURLConnection conn = (HttpURLConnection) new URL(fUrl).openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json");
-                conn.setDoOutput(true);
-                conn.setConnectTimeout(5000);
-                conn.setReadTimeout(5000);
-                try (java.io.OutputStream os = conn.getOutputStream()) {
-                    os.write(payload.toString().getBytes(StandardCharsets.UTF_8));
+                try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(5000, 5000)) {
+                    int code = http.postJson(fUrl, payload.toString(), "Lengbanlist-Webhook/1.0");
+                    if (code < 200 || code >= 300) {
+                        plugin.getLogger().warning("Webhook 推送失败，HTTP " + code);
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Webhook 推送异常: " + e.getMessage());
                 }
-                int code = conn.getResponseCode();
-                if (code < 200 || code >= 300) {
-                    plugin.getLogger().warning("Webhook 推送失败，HTTP " + code);
-                }
-                conn.disconnect();
-            } catch (Exception e) {
-                plugin.getLogger().warning("Webhook 推送异常: " + e.getMessage());
-            }
         });
     }
 

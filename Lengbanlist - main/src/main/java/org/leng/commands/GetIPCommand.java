@@ -88,20 +88,9 @@ public class GetIPCommand implements CommandExecutor {
 
     private String getIPLocation(String ip) {
         String apiUrl = "https://ip-api.com/json/" + ip + "?lang=zh-CN";
-        try {
-            URL url = new URL(apiUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(3000);
-            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            StringBuilder response = new StringBuilder();
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                response.append(inputLine);
-            }
-            in.close();
-            JsonObject jsonResponse = JsonParser.parseString(response.toString()).getAsJsonObject();
+        try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(3000, 3000)) {
+            String response = http.get(apiUrl, "Lengbanlist-IPLoc/1.0", "*/*");
+            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
             if (jsonResponse.get("status").getAsString().equals("success")) {
                 String country = jsonResponse.get("country").getAsString();
                 String regionName = jsonResponse.get("regionName").getAsString();

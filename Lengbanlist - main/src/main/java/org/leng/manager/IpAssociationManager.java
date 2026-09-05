@@ -128,21 +128,10 @@ public class IpAssociationManager {
     }
 
     public boolean isVpnIp(String ip) {
-        try {
+        try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(3000, 3000)) {
             String apiUrl = "https://ip-api.com/json/" + ip + "?fields=status,proxy,hosting";
-            URL url = new URL(apiUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(3000);
-            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            StringBuilder response = new StringBuilder();
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                response.append(inputLine);
-            }
-            in.close();
-            JsonObject json = JsonParser.parseString(response.toString()).getAsJsonObject();
+            String response = http.get(apiUrl, "Lengbanlist-VPNCheck/1.0", "*/*");
+            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
             if ("success".equals(json.get("status").getAsString())) {
                 boolean proxy = json.has("proxy") && json.get("proxy").getAsBoolean();
                 boolean hosting = json.has("hosting") && json.get("hosting").getAsBoolean();
