@@ -288,6 +288,13 @@ public class WebServer {
 
     private final RateLimiter rateLimiter = new RateLimiter();
 
+    // WebServer 拆分 TODO:
+    // 当前 AuthManager/RateLimiter 是 WebServer 内部 static class。
+    // 后续拆将：
+    //   1. 把这两个抽到 org.leng.web 顶层包
+    //   2. 把 17 个 handler 拆分到各 controller (Ban/Mute/Warn/Report/Audit/Player/...)
+    //   3. WebServer 仅保留启动/停止逻辑
+    // 由于改动面大,本轮先记录 TODO,不执行
     private boolean checkRateLimit(HttpExchange exchange) {
         String ip = exchange.getRemoteAddress().getAddress().getHostAddress();
         if (rateLimiter.isRateLimited(ip)) {
