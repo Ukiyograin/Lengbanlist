@@ -51,6 +51,7 @@ public class Lengbanlist extends JavaPlugin {
     private String hitokoto;
     private ModelManager modelManager;
     private DatabaseManager databaseManager;
+    private ThemeManager themeManager;
     private FileConfiguration eulaFC;
 
     private boolean eulaAgreed = false;
@@ -120,6 +121,7 @@ public void onLoad() {
     auditManager = new AuditManager(this);
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
+    themeManager = new ThemeManager(this);
     webServer = new WebServer(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
 
@@ -517,6 +519,10 @@ void shutdownStorage() {
 
     public DatabaseManager getDatabaseManager() {
         return databaseManager;
+    }
+
+    public ThemeManager getThemeManager() {
+        return themeManager;
     }
 
     public FileConfiguration getBroadcastFC() {

@@ -91,6 +91,9 @@ public class WebServer {
             server.createContext("/api/warn", this::handleWarn);
             server.createContext("/api/report/action", this::handleReportAction);
             server.createContext("/api/audit", this::handleAudit);
+            server.createContext("/api/theme", this::handleTheme);
+            server.createContext("/api/theme/upload", this::handleThemeUpload);
+            server.createContext("/api/theme/file", this::handleThemeFile);
             server.createContext("/api/reload", this::handleReload);
             server.createContext("/api/broadcast", this::handleBroadcast);
             server.createContext("/", this::handleRoot);
@@ -1280,6 +1283,156 @@ public class WebServer {
         result.add("logs", logs);
         result.addProperty("total", logs.size());
         sendJson(exchange, 200, result.toString());
+    }
+
+    // ============ Theme 主题管理（A9 + Theme） ============
+
+    private void handleTheme(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
+        org.leng.manager.ThemeManager theme = plugin.getThemeManager();
+
+        if ("GET".equals(exchange.getRequestMethod())) {
+            JsonObject result = new JsonObject();
+            result.addProperty("background-type", theme.getBackgroundType());
+            result.addProperty("background-url", theme.getBackgroundUrl());
+            result.addProperty("background-file", theme.getBackgroundFile());
+            result.add("background-url-served", servedBackgroundUrl(theme, exchange));
+            result.addProperty("all-buttons", String.join(",", org.leng.manager.ThemeManager.ALL_BUTTONS));
+            result.addProperty("hidden-buttons", String.join(",", theme.getHiddenButtons()));
+            sendJson(exchange, 200, result.toString());
+            return;
+        }
+
+        if ("POST".equals(exchange.getRequestMethod())) {
+            if (!requireAuth(exchange)) return;
+            try {
+                JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
+                String action = json.has("action") ? json.get("action").getAsString() : "";
+                switch (action) {
+                    case "url":
+                        theme.setBackgroundUrl(json.get("url").getAsString());
+                        break;
+                    case "reset":
+                        theme.resetBackground();
+                        break;
+                    case "hide-buttons":
+                        java.util.Set<String> buttons = new java.util.HashSet<>();
+                        if (json.has("buttons")) {
+                            for (com.google.gson.JsonElement e : json.getAsJsonArray("buttons")) {
+                                buttons.add(e.getAsString());
+                            }
+                        }
+                        theme.setHiddenButtons(buttons);
+                        break;
+                    default:
+                        sendError(exchange, 400, "未知 action: " + action);
+                        return;
+                }
+                JsonObject result = new JsonObject();
+                result.addProperty("success", true);
+                sendJson(exchange, 200, result.toString());
+            } catch (Exception e) {
+                sendError(exchange, 400, "请求格式错误: " + e.getMessage());
+            }
+            return;
+        }
+
+        sendError(exchange, 405, "仅支持 GET/POST");
+    }
+
+    private void handleThemeUpload(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
+        if (!requireAuth(exchange)) return;
+        if (!"POST".equals(exchange.getRequestMethod())) {
+            sendError(exchange, 405, "仅支持 POST");
+            return;
+        }
+        org.leng.manager.ThemeManager theme = plugin.getThemeManager();
+
+        // 从 Content-Disposition 头提取原始文件名
+        String originalFilename = null;
+        String disposition = exchange.getRequestHeaders().getFirst("Content-Disposition");
+        if (disposition != null) {
+            int idx = disposition.indexOf("filename=");
+            if (idx > 0) {
+                originalFilename = disposition.substring(idx + 9).trim().replace("\"", "");
+            }
+        }
+
+        try {
+            int maxBytes = (int) org.leng.manager.ThemeManager.MAX_UPLOAD_BYTES;
+            byte[] buf = new byte[8192];
+            int total = 0;
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            try (java.io.InputStream is = exchange.getRequestBody()) {
+                int n;
+                while ((n = is.read(buf)) > 0) {
+                    total += n;
+                    if (total > maxBytes) {
+                        sendError(exchange, 413, "文件超过 5MB 上限");
+                        return;
+                    }
+                    out.write(buf, 0, n);
+                }
+            }
+            String saved = theme.saveBackgroundUpload(out.toByteArray(), originalFilename);
+            JsonObject result = new JsonObject();
+            result.addProperty("success", true);
+            result.addProperty("filename", saved);
+            sendJson(exchange, 200, result.toString());
+        } catch (IOException e) {
+            sendError(exchange, 400, "上传失败: " + e.getMessage());
+        }
+    }
+
+    private String servedBackgroundUrl(org.leng.manager.ThemeManager theme, HttpExchange exchange) {
+        switch (theme.getBackgroundType()) {
+            case "url":
+                return theme.getBackgroundUrl();
+            case "upload":
+                return "/api/theme/file/" + theme.getBackgroundFile();
+            default:
+                return "";
+        }
+    }
+
+    /** 服务上传的背景图片。/api/theme/file/<filename> */
+    private void handleThemeFile(HttpExchange exchange) {
+        String path = exchange.getRequestURI().getPath();
+        String filename = path.substring("/api/theme/file/".length());
+        // 防路径穿越:只允许 [a-zA-Z0-9.-]+
+        if (!filename.matches("[a-zA-Z0-9.\\-]+")) {
+            sendError(exchange, 400, "非法文件名");
+            return;
+        }
+        org.leng.manager.ThemeManager theme = plugin.getThemeManager();
+        java.io.File file = new java.io.File(theme.getWebAssetsDir(), filename);
+        if (!file.exists() || !file.getAbsolutePath().startsWith(theme.getWebAssetsDir().getAbsolutePath())) {
+            sendError(exchange, 404, "文件不存在");
+            return;
+        }
+        try {
+            String contentType = filename.endsWith(".png") ? "image/png"
+                    : filename.endsWith(".webp") ? "image/webp"
+                    : filename.endsWith(".gif") ? "image/gif"
+                    : "image/jpeg";
+            byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
+            exchange.getResponseHeaders().set("Content-Type", contentType);
+            exchange.getResponseHeaders().set("Cache-Control", "public, max-age=3600");
+            applyCorsHeaders(exchange);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+        } catch (IOException e) {
+            sendError(exchange, 500, "读取失败");
+        } finally {
+            exchange.close();
+        }
     }
 
     private void handleRoot(HttpExchange exchange) {
