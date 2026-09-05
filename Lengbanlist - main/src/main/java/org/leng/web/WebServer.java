@@ -84,9 +84,7 @@ public class WebServer {
             server.createContext("/api/ipbans", this::handleIpBanList);
             server.createContext("/api/mutes", this::handleMuteList);
             server.createContext("/api/reports", this::handleReports);
-            server.createContext("/api/mute", this::handleMute);
-            server.createContext("/api/unmute", this::handleUnmute);
-            server.createContext("/api/warn", this::handleWarn);
+            // mute/unmute 走 MuteController，warn 走 WarnController（见 registerAllControllers）
             server.createContext("/api/report/action", this::handleReportAction);
             server.createContext("/api/audit", this::handleAudit);
             server.createContext("/api/theme", this::handleTheme);
@@ -158,6 +156,8 @@ public class WebServer {
     private void registerAllControllers(com.sun.net.httpserver.HttpServer server) {
         new AuthController(plugin, authManager).registerRoutes(server);
         new BanController(plugin, authManager).registerRoutes(server);
+        new MuteController(plugin, authManager).registerRoutes(server);
+        new WarnController(plugin, authManager).registerRoutes(server);
     }
 
 
@@ -671,144 +671,6 @@ public class WebServer {
         sendJson(exchange, 200, result.toString());
     }
 
-    private void handleMute(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            handleOptions(exchange);
-            return;
-        }
-        if (!"POST".equals(exchange.getRequestMethod())) {
-            sendError(exchange, 405, "仅支持 POST");
-            return;
-        }
-        if (!requireAuth(exchange) || !requireFeature(exchange, "mute")) return;
-
-        try {
-            JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
-            String target = json.get("target").getAsString();
-            String duration = json.has("duration") ? json.get("duration").getAsString() : "7d";
-            String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
-            String staff = authManager.resolveActor(extractToken(exchange));
-            final String finalStaff = staff;
-
-            long durationMs = TimeUtils.parseTime(duration);
-            if (durationMs <= 0) durationMs = TimeUtils.daysToMillis(7);
-            long endTime = TimeUtils.calculateEndTime(durationMs);
-
-            AtomicReference<String> outcome = new AtomicReference<>("ok");
-            boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
-                    outcome.set("403");
-                    return;
-                }
-                Long newEnd = plugin.getMuteManager().mutePlayer(new MuteEntry(target, finalStaff, endTime, reason));
-                if (newEnd == null) {
-                    outcome.set("noop");
-                }
-            });
-            if (!completed) return;
-            if ("403".equals(outcome.get())) {
-                sendError(exchange, 403, "目标权重高于操作者，无法执行");
-                return;
-            }
-            if ("noop".equals(outcome.get())) {
-                sendError(exchange, 409, "该目标已有相同时长的禁言记录，未重复禁言");
-                return;
-            }
-
-            JsonObject result = new JsonObject();
-            result.addProperty("success", true);
-            result.addProperty("message", target + " 已被禁言，时长: " + TimeUtils.formatDuration(durationMs));
-            sendJson(exchange, 200, result.toString());
-        } catch (IOException e) {
-            sendError(exchange, 413, e.getMessage());
-        } catch (Exception e) {
-            sendError(exchange, 400, "禁言失败: " + e.getMessage());
-        }
-    }
-
-    private void handleUnmute(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            handleOptions(exchange);
-            return;
-        }
-        if (!"POST".equals(exchange.getRequestMethod())) {
-            sendError(exchange, 405, "仅支持 POST");
-            return;
-        }
-        if (!requireAuth(exchange) || !requireFeature(exchange, "mute")) return;
-
-        try {
-            JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
-            String target = json.get("target").getAsString();
-            final String finalActor = authManager.resolveActor(extractToken(exchange));
-
-            AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
-            boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
-                    permissionDenied.set(true);
-                    return;
-                }
-                plugin.getMuteManager().unmutePlayer(target, finalActor);
-            });
-            if (!completed) return;
-            if (permissionDenied.get()) {
-                sendError(exchange, 403, "目标权重高于操作者，无法执行");
-                return;
-            }
-
-            JsonObject result = new JsonObject();
-            result.addProperty("success", true);
-            result.addProperty("message", target + " 已被解除禁言");
-            sendJson(exchange, 200, result.toString());
-        } catch (IOException e) {
-            sendError(exchange, 413, e.getMessage());
-        } catch (Exception e) {
-            sendError(exchange, 400, "解除禁言失败: " + e.getMessage());
-        }
-    }
-
-    private void handleWarn(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            handleOptions(exchange);
-            return;
-        }
-        if (!"POST".equals(exchange.getRequestMethod())) {
-            sendError(exchange, 405, "仅支持 POST");
-            return;
-        }
-        if (!requireAuth(exchange) || !requireFeature(exchange, "warn")) return;
-
-        try {
-            JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
-            String target = json.get("target").getAsString();
-            String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
-            String staff = authManager.resolveActor(extractToken(exchange));
-            final String finalStaff = staff;
-
-            AtomicReference<String> outcome = new AtomicReference<>("ok");
-            boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
-                    outcome.set("403");
-                    return;
-                }
-                plugin.getWarnManager().warnPlayer(target, finalStaff, reason);
-            });
-            if (!completed) return;
-            if ("403".equals(outcome.get())) {
-                sendError(exchange, 403, "目标权重高于操作者，无法执行");
-                return;
-            }
-
-            JsonObject result = new JsonObject();
-            result.addProperty("success", true);
-            result.addProperty("message", target + " 已被警告");
-            sendJson(exchange, 200, result.toString());
-        } catch (IOException e) {
-            sendError(exchange, 413, e.getMessage());
-        } catch (Exception e) {
-            sendError(exchange, 400, "警告失败: " + e.getMessage());
-        }
-    }
 
     private void handleReportAction(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
