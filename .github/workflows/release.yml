@@ -26,7 +26,7 @@ jobs:
     - name: Build with Maven
       run: |
         cd "Lengbanlist - main"
-        mvn clean package -B -DskipTests
+        mvn clean verify -B
     
     - name: Get version from pom.xml
       id: get_version
