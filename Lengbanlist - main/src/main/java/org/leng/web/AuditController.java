@@ -40,9 +40,19 @@ public class AuditController extends WebController {
             limit = 100;
         }
 
-        List<AuditEntry> entries = plugin.getAuditManager().getLogs("", limit);
+        String actor = params.get("actor");
+        String action = params.get("action");
+
+        // actor 过滤走专用方法走索引（如果实现里有），否则用通用查询再客户端过滤
+        List<AuditEntry> entries;
+        if (actor != null && !actor.isEmpty()) {
+            entries = plugin.getAuditManager().getLogsByActor(actor, limit);
+        } else {
+            entries = plugin.getAuditManager().getLogs("", limit);
+        }
         JsonArray logs = new JsonArray();
         for (AuditEntry e : entries) {
+            if (action != null && !action.isEmpty() && !e.action().contains(action)) continue;
             JsonObject o = new JsonObject();
             o.addProperty("id", e.id());
             o.addProperty("timestamp", e.timestamp());

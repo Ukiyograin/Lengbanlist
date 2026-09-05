@@ -113,6 +113,7 @@ public class WebServer {
         new ReportController(plugin, authManager).registerRoutes(server);
         new ThemeController(plugin, authManager).registerRoutes(server);
         new AdminController(plugin, authManager).registerRoutes(server);
+        new ExportController(plugin, authManager).registerRoutes(server);
     }
 
     // ============ 静态资源 ============
