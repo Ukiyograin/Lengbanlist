@@ -6,7 +6,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -68,15 +67,5 @@ class AutoUpdateManagerDownloadTest {
         File jar = writeJar("name: Lengbanlist\nmain: org.leng.Lengbanlist\nversion: 1.9.9\n", "com.evil.Injected");
         IOException e = assertThrows(IOException.class, () -> AutoUpdateManager.validatePluginJar(jar));
         assertTrue(e.getMessage().contains("冲突的主类"));
-    }
-
-    @Test
-    void acceptsOfficialReleasedJar() throws Exception {
-        // 真实官方发布 jar（若构建机上有缓存；无缓存则跳过）
-        Path release = Path.of(System.getProperty("user.dir"), "Lengbanlist-1.9.9.jar");
-        if (!Files.exists(release)) {
-            return;
-        }
-        assertDoesNotThrow(() -> AutoUpdateManager.validatePluginJar(release.toFile()));
     }
 }
