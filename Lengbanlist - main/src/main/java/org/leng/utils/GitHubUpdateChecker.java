@@ -315,41 +315,19 @@ public class GitHubUpdateChecker {
     }
 
     private static String doFetch(String url) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setRequestMethod("GET");
-        connection.setRequestProperty("User-Agent", getUserAgent());
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setConnectTimeout(getConnectTimeout());
-        connection.setReadTimeout(getReadTimeout());
-        if (connection instanceof HttpsURLConnection) {
-            HttpsURLConnection https = (HttpsURLConnection) connection;
-            if (!isSslVerify()) {
-                logSslWarningIfNeeded();
-                if (INSECURE_SOCKET_FACTORY != null) {
-                    https.setSSLSocketFactory(INSECURE_SOCKET_FACTORY);
-                }
-                https.setHostnameVerifier((hostname, session) -> true);
-            }
+        if (!isSslVerify()) {
+            logSslWarningIfNeeded();
         }
-        int code;
-        try {
-            code = connection.getResponseCode();
-        } catch (IOException e) {
-            throw new IOException("连接失败: " + url + "（" + e.getMessage() + "）", e);
-        }
-        if (code >= 400) {
-            throw new IOException("HTTP " + code + ": " + url);
-        }
-        try (InputStreamReader reader = new InputStreamReader(connection.getInputStream(), "UTF-8")) {
-            StringBuilder response = new StringBuilder();
-            char[] buffer = new char[4096];
-            int len;
-            while ((len = reader.read(buffer)) != -1) {
-                response.append(buffer, 0, len);
-            }
-            return response.toString();
-        } finally {
-            connection.disconnect();
+        try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(
+                java.time.Duration.ofMillis(getConnectTimeout()),
+                java.time.Duration.ofMillis(getReadTimeout()),
+                !isSslVerify())) {
+            return http.get(url, getUserAgent(), "application/json");
+        } catch (java.io.IOException e) {
+            throw new java.io.IOException("连接失败: " + url + "（" + e.getMessage() + "）", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new java.io.IOException("更新检查被中断");
         }
     }
 
@@ -360,6 +338,8 @@ public class GitHubUpdateChecker {
         return isSslVerify();
     }
 
+    /** 兼容旧 API,新代码应直接通过 HttpHelper 构造器传入 insecureSsl */
+    @Deprecated
     public static SSLSocketFactory getInsecureSocketFactory() {
         return INSECURE_SOCKET_FACTORY;
     }

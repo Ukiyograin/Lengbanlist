@@ -108,59 +108,54 @@ public class AutoUpdateManager {
 
 
         logger.info("正在从 " + downloadUrl + " 下载新版本...");
-        HttpURLConnection connection = (HttpURLConnection) new URL(downloadUrl).openConnection();
-        connection.setRequestMethod("GET");
-        connection.setRequestProperty("User-Agent", GitHubUpdateChecker.getUserAgent());
-        connection.setConnectTimeout(5000);
-        connection.setReadTimeout(15000);
-        if (connection instanceof HttpsURLConnection) {
-            HttpsURLConnection https = (HttpsURLConnection) connection;
-            if (!GitHubUpdateChecker.isSslVerifyEnabled()) {
-                SSLSocketFactory factory = GitHubUpdateChecker.getInsecureSocketFactory();
-                if (factory != null) {
-                    https.setSSLSocketFactory(factory);
-                }
-                https.setHostnameVerifier((hostname, session) -> true);
-            }
+        long[] totalBytes = {0};
+        boolean[] headerValidated = {false};
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 算法不可用", e);
         }
 
-        // 计算下载内容的 SHA-256 摘要，同时做文件头与大小校验。
-        // 若镜像源被劫持，返回的不是合法 jar 时会在替换前被拒绝。
-        byte[] jarHeader = new byte[4];
-        String sha256;
-        long bytesRead;
-        try (InputStream rawIn = connection.getInputStream()) {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            DigestInputStream in = new DigestInputStream(rawIn, digest);
-            int headerRead = in.read(jarHeader);
-            if (headerRead < 4 || !isZipHeader(jarHeader)) {
-                throw new IOException("下载内容不是有效的 JAR 文件（文件头异常），已拒绝安装，请检查更新源或镜像是否可信。");
+        try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(
+                java.time.Duration.ofMillis(5000),
+                java.time.Duration.ofMillis(15000),
+                !GitHubUpdateChecker.isSslVerifyEnabled());
+             FileOutputStream fos = new FileOutputStream(tempFile)) {
+
+            http.download(downloadUrl, GitHubUpdateChecker.getUserAgent(),
+                    chunk -> {
+                        if (!headerValidated[0]) {
+                            if (chunk.length < 4 || !isZipHeader(chunk)) {
+                                throw new IllegalStateException("下载内容不是有效的 JAR 文件（文件头异常），已拒绝安装，请检查更新源或镜像是否可信。");
+                            }
+                            headerValidated[0] = true;
+                        }
+                        digest.update(chunk);
+                        try {
+                            fos.write(chunk);
+                        } catch (IOException e) {
+                            throw new RuntimeException("写入临时文件失败", e);
+                        }
+                        totalBytes[0] += chunk.length;
+                        if (totalBytes[0] >= MAX_DOWNLOAD_BYTES) {
+                            throw new IllegalStateException("下载内容超过 " + MAX_DOWNLOAD_BYTES + " 字节，疑似非插件文件，已中断并拒绝安装。");
+                        }
+                    },
+                    total -> { /* HttpHelper 已限制单 chunk, 此处仅作记录 */ });
+
+            if (!headerValidated[0]) {
+                throw new IOException("下载内容为空");
             }
-            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                fos.write(jarHeader, 0, headerRead);
-                ReadableByteChannel rbc = Channels.newChannel(in);
-                long position = headerRead;
-                long transferred = 0;
-                while (position < MAX_DOWNLOAD_BYTES) {
-                    transferred = fos.getChannel().transferFrom(rbc, position, MAX_DOWNLOAD_BYTES - position);
-                    if (transferred == 0) {
-                        break; // 流已结束
-                    }
-                    position += transferred;
-                }
-                bytesRead = position;
-                if (bytesRead >= MAX_DOWNLOAD_BYTES) {
-                    throw new IOException("下载内容超过 " + MAX_DOWNLOAD_BYTES + " 字节，疑似非插件文件，已中断并拒绝安装。");
-                }
-                // transferFrom 返回 0 即流结束；再显式读一次确认没有剩余字节
-                if (in.read() != -1) {
-                    throw new IOException("下载内容超过 " + MAX_DOWNLOAD_BYTES + " 字节，疑似非插件文件，已中断并拒绝安装。");
-                }
-            }
-            sha256 = toHex(digest.digest());
-        } finally {
-            connection.disconnect();
+        } catch (IllegalStateException e) {
+            // 校验失败抛出的状态,转换为 IO 异常以兼容调用方
+            throw new IOException(e.getMessage(), e);
+        } catch (RuntimeException e) {
+            throw new IOException(e.getMessage(), e);
         }
+
+        long bytesRead = totalBytes[0];
+        String sha256 = toHex(digest.digest());
 
         logger.info("新版本已下载到临时文件: " + tempFile.getName() +
                    " (" + bytesRead + " bytes, SHA-256: " + sha256 + ")");
