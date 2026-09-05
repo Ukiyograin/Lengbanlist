@@ -212,14 +212,7 @@ public void onEnable() {
     }
     registerFeatureCommands();
 
-    getServer().getConsoleSender().sendMessage("§b  _                            _                     _   _     _   ");
-    getServer().getConsoleSender().sendMessage("§6 | |                          | |                   | | | |   | |  ");
-    getServer().getConsoleSender().sendMessage("§b | |     ___  _ __    __ _   | |__    __ _   ___   | |_| |_  | |_ ");
-    getServer().getConsoleSender().sendMessage("§f | |    / _ \\| '_ \\  / _` |  | '_ \\  / _` | / _ \\  | __| __| | __|");
-    getServer().getConsoleSender().sendMessage("§b | |___|  __/| | | || (_| |  | |_) || (_| || (_) | | |_| |_  | |_ ");
-    getServer().getConsoleSender().sendMessage("§6 |______\\___||_| |_| \\__,_|  |_.__/  \\__,_| \\___/   \\__|\\__|  \\__|");
-    getServer().getConsoleSender().sendMessage("§b                   __/ |                                    ");
-    getServer().getConsoleSender().sendMessage("§f                   |___/                                     ");
+    getServer().getConsoleSender().sendMessage("§bLengbanlist §6干杯[]~(￣▽￣)~* ");
     getServer().getConsoleSender().sendMessage("§6插件版本：v" + getPluginVersion());
     getServer().getConsoleSender().sendMessage("§3服务端版本：" + Bukkit.getServer().getVersion());
 
