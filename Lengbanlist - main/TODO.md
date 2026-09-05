@@ -3,27 +3,35 @@
 ## 进度概览
 | # | 任务 | 状态 |
 |---|---|---|
+| A1 | 测试覆盖率补全 | ✅ 已完成 |
 | A2 | 移除测试死断言 | ✅ 已完成 |
-| A4 | POJO 转 Java 17 record | 🔄 进行中 |
-| A1 | 测试覆盖率补全 | ⏳ 待办 |
-| A3 | 公共 API 暴露 | ⏳ 待办 |
-| A5 | 依赖升级（HikariCP/Gson/mysql-connector） | ⏳ 待办 |
-| A6 | HttpURLConnection → java.net.http.HttpClient | ⏳ 待办 |
-| A7 | 数据库 schema 版本化 | ⏳ 待办 |
-| A8 | 占位符扩展 | ⏳ 待办 |
-| A9 | Web 管理面板增强 | ⏳ 待办 |
-| D1 | WebServer 拆分成 controllers | ⏳ 待办 |
-| D2 | Folia 真原生支持 | ⏳ 待办 |
-| D3 | 异步 PlayerProfile 查询 | ⏳ 待办 |
-| Theme | Web 主题（背景+按钮显隐） | ⏳ 待办 |
+| A3 | 公共 API 暴露 | ✅ 已完成 |
+| A4 | POJO 转 Java 17 record | ✅ 已完成 |
+| A5 | 依赖升级（HikariCP/Gson/mysql-connector） | ✅ 已完成 |
+| A6 | HttpURLConnection → java.net.http.HttpClient | ✅ 已完成 |
+| A7 | 数据库 schema 版本化 | ✅ 已完成 |
+| A8 | 占位符扩展 | ✅ 已完成 |
+| A9 | Web 管理面板增强 | ✅ 已完成 |
+| D1 | WebServer 拆分成 controllers | ✅ 已完成 |
+| D2 | Folia 真原生支持 | ✅ 已完成 |
+| D3 | 异步 PlayerProfile 查询 | ✅ 已完成 |
+| Theme | Web 主题（背景+按钮显隐） | ✅ 已完成 |
 
-## 执行策略
-- 用户授权：批量写代码，最后统一测试
-- 每个任务单独 commit，遵循仓库 `fix:` / `feat:` 规范
-- A4 → A3 → A1 优先（基础重构 → API → 测试保护）
-- D1 → D2 → D3 次之（Web 现代化）
-- A5 → A6 → A7 → A8 → A9 最后（依赖/HTTP/Schema/Placeholder/Web增强）
-- Theme 在 D1 之后做（需要新的 ThemeController）
+## Web 管理面板 API（11 个 controller / 25 个端点）
+
+| Controller | 端点 |
+|---|---|
+| AuthController | POST /api/login、POST /api/logout |
+| BanController | POST /api/ban、POST /api/unban、GET /api/bans、GET /api/ipbans |
+| MuteController | POST /api/mute、POST /api/unmute、GET /api/mutes |
+| WarnController | POST /api/warn |
+| PlayerController | GET /api/players、GET /api/online、POST /api/kick、GET /api/history |
+| AuditController | GET /api/audit?actor=&action=&limit= |
+| ReportController | GET /api/reports、POST /api/report/action |
+| ThemeController | GET/POST /api/theme、POST /api/theme/upload、GET /api/theme/file/<filename> |
+| AdminController | POST /api/reload、POST /api/broadcast |
+| ExportController | GET /api/exports/{bans,ipbans,mutes}.csv |
+| WebServer | GET / (静态资源) |
 
 ## 关联文档
 - `.github/workflows/maven-ci.yml` 已建立 CI 守卫
