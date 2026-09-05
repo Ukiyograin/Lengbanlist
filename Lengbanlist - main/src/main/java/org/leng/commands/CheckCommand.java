@@ -66,14 +66,9 @@ public class CheckCommand extends Command implements CommandExecutor {
         if (online != null) {
             player = online;
         } else {
-            try {
-                player = Bukkit.getOfflinePlayer(playerName);
-            } catch (Exception e) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c当前服务端不支持离线玩家查询（Folia），请查询在线玩家。");
-                return;
-            }
-            if (!player.hasPlayedBefore() && !player.isOnline()) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c未找到玩家：" + playerName);
+            player = org.leng.utils.PlayerProfileHelper.lookupSync(playerName);
+            if (player == null) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c未找到玩家：" + playerName + "（离线查询不可用，请在 Folia 服务端查询在线玩家）");
                 return;
             }
         }
