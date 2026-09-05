@@ -1299,7 +1299,7 @@ public class WebServer {
             result.addProperty("background-type", theme.getBackgroundType());
             result.addProperty("background-url", theme.getBackgroundUrl());
             result.addProperty("background-file", theme.getBackgroundFile());
-            result.add("background-url-served", servedBackgroundUrl(theme, exchange));
+            result.addProperty("background-url-served", servedBackgroundUrl(theme, exchange));
             result.addProperty("all-buttons", String.join(",", org.leng.manager.ThemeManager.ALL_BUTTONS));
             result.addProperty("hidden-buttons", String.join(",", theme.getHiddenButtons()));
             sendJson(exchange, 200, result.toString());

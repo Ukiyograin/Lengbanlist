@@ -243,6 +243,9 @@ public class AuditManager {
                 } catch (Exception e) {
                     plugin.getLogger().warning("Webhook 推送异常: " + e.getMessage());
                 }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Webhook 构造失败: " + e.getMessage());
+            }
         });
     }
 

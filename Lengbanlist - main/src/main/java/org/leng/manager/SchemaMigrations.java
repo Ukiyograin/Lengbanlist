@@ -31,7 +31,7 @@ public final class SchemaMigrations {
                 db -> {
                     db.addColumnIfMissing("audit_log", "prev_hash",
                             db.varcharType(64) + " NOT NULL DEFAULT ''");
-                    if (db.isMysql()) {
+                    if (db.isMySql()) {
                         db.execute("INSERT IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
                     } else {
                         db.execute("INSERT OR IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");

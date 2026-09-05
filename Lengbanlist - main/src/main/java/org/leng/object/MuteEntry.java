@@ -15,6 +15,10 @@ public record MuteEntry(
     }
 
     public long getEndTime() { return time; }
+    public long getTime() { return time; }
+    public String getTarget() { return target; }
+    public String getStaff() { return staff; }
+    public String getReason() { return reason; }
 
     @Override
     public String toString() {

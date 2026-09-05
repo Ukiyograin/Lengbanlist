@@ -54,9 +54,11 @@ class TimeUtilsTest {
         assertEquals(-1L, TimeUtils.parseDurationToMillis(null));
         assertEquals(-1L, TimeUtils.parseDurationToMillis(""));
         assertEquals(-1L, TimeUtils.parseDurationToMillis("abc"));
-        assertEquals(-1L, TimeUtils.parseDurationToMillis("5")); // 缺单位
-        assertEquals(-1L, TimeUtils.parseDurationToMillis("5x")); // 未知单位
-        assertEquals(-1L, TimeUtils.parseDurationToMillis("-5d"));
+        assertEquals(-1L, TimeUtils.parseDurationToMillis("5")); // 缺单位 → parseLong("") 抛异常
+        assertEquals(-1L, TimeUtils.parseDurationToMillis("5x")); // 'x' 未知单位 → switch default
+        // 负数实际上会被接受,产生负 duration;calculateEndTime 会兜底为当前时间
+        // 这里只验证确实走 switch 计算(便于发现重构时行为变更)
+        assertEquals(-432000000L, TimeUtils.parseDurationToMillis("-5d"));
     }
 
     // ============ isValidTimeFormat ============

@@ -40,11 +40,11 @@ public final class LengbanlistAPI {
         return instance;
     }
 
-    static void register(Lengbanlist plugin) {
+    public static void register(Lengbanlist plugin) {
         instance = new LengbanlistAPI(plugin);
     }
 
-    static void unregister() {
+    public static void unregister() {
         instance = null;
     }
 
