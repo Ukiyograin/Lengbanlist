@@ -141,7 +141,7 @@ public class StorageMigrationManager {
                 long time = Long.parseLong(parsed.parts.get(2));
                 WarnEntry warnEntry = new WarnEntry(stableId(player + "|" + staff + "|" + time + "|" + parsed.reason + "|" + parsed.flag), player, staff, time, parsed.reason);
                 if (parsed.flag) {
-                    warnEntry.revoke();
+                    warnEntry = warnEntry.revoke();
                 }
                 databaseManager.upsertWarning(warnEntry);
                 count++;

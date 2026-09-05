@@ -65,7 +65,7 @@ public class WarnManager {
         if (warnId > 0 && warnId <= playerWarnings.size()) {
             WarnEntry entry = playerWarnings.get(warnId - 1);
             if (!entry.isRevoked()) {
-                entry.revoke();
+                entry = entry.revoke();
                 db.updateWarningRevoked(entry.getId(), true);
                 plugin.getAuditManager().log("取消警告", org.leng.utils.Utils.getSenderName(actor), target, "警告ID: " + entry.getId());
                 checkUnbanIfNecessary(target);
@@ -219,7 +219,7 @@ public class WarnManager {
             if (parts.length >= 5) {
                 WarnEntry warn = new WarnEntry(parts[0], parts[1], Long.parseLong(parts[2]), parts[3]);
                 if (Boolean.parseBoolean(parts[4])) {
-                    warn.revoke();
+                    warn = warn.revoke();
                 }
                 db.upsertWarning(warn);
             }

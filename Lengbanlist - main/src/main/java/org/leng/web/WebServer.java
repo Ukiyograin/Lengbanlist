@@ -1126,7 +1126,7 @@ public class WebServer {
             }
 
             if ("accept".equalsIgnoreCase(action)) {
-                report.setStatus("受理中");
+                report = report.withStatus("受理中");
                 plugin.getReportManager().updateReport(report);
                 plugin.getAuditManager().log("受理举报", authManager.resolveActor(extractToken(exchange)), report.getTarget(), "编号: " + id + " - " + report.getReason());
                 JsonObject result = new JsonObject();
@@ -1134,7 +1134,7 @@ public class WebServer {
                 result.addProperty("message", "举报 " + id + " 已受理");
                 sendJson(exchange, 200, result.toString());
             } else if ("close".equalsIgnoreCase(action)) {
-                report.setStatus("已关闭");
+                report = report.withStatus("已关闭");
                 plugin.getReportManager().updateReport(report);
                 plugin.getAuditManager().log("关闭举报", authManager.resolveActor(extractToken(exchange)), report.getTarget(), "编号: " + id + " - " + report.getReason());
                 JsonObject result = new JsonObject();

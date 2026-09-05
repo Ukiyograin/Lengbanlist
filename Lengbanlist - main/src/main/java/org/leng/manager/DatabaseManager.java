@@ -910,7 +910,7 @@ public class DatabaseManager {
     private WarnEntry readWarning(ResultSet rs) throws SQLException {
         WarnEntry entry = new WarnEntry(value(rs, "id"), value(rs, "player"), value(rs, "staff"), rs.getLong("warn_time"), value(rs, "reason"));
         if (rs.getBoolean("revoked")) {
-            entry.revoke();
+            entry = entry.revoke();
         }
         return entry;
     }

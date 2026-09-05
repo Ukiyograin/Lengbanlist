@@ -67,7 +67,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                 if (warnId != -1) {
                     WarnEntry entry = allWarnings.get(warnId - 1);
                     if (!entry.isRevoked()) {
-                        entry.revoke();
+                        entry = entry.revoke();
                         plugin.getDatabaseManager().updateWarningRevoked(entry.getId(), true);
                         plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, "警告ID: " + warnId);
                         if (!silent) {
@@ -86,7 +86,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
 
                 for (WarnEntry warning : allWarnings) {
                     if (!warning.isRevoked()) {
-                        warning.revoke();
+                        warning = warning.revoke();
                         plugin.getDatabaseManager().updateWarningRevoked(warning.getId(), true);
                     }
                 }

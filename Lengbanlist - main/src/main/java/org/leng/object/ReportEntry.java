@@ -7,60 +7,21 @@ import java.util.HashMap;
 import java.util.Map;
 
 @SerializableAs("ReportEntry")
-public class ReportEntry implements ConfigurationSerializable {
-    private String target;
-    private String reporter;
-    private String reason;
-    private String id;
-    private String status;
-    private long timestamp;
-
-    public ReportEntry() {}
-
+public record ReportEntry(
+        String target,
+        String reporter,
+        String reason,
+        String id,
+        long timestamp,
+        String status
+) implements ConfigurationSerializable {
 
     public ReportEntry(String target, String reporter, String reason, String id) {
-        this.target = target;
-        this.reporter = reporter;
-        this.reason = reason;
-        this.id = id;
+        this(target, reporter, reason, id, System.currentTimeMillis(), "未处理");
     }
 
-
-    public ReportEntry(String target, String reporter, String reason, String id, long timestamp, String status) {
-        this.target = target;
-        this.reporter = reporter;
-        this.reason = reason;
-        this.id = id;
-        this.timestamp = timestamp;
-        this.status = status;
-    }
-
-    public String getTarget() {
-        return target;
-    }
-
-    public String getReporter() {
-        return reporter;
-    }
-
-    public String getReason() {
-        return reason;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public long getTimestamp() {
-        return timestamp;
+    public ReportEntry withStatus(String newStatus) {
+        return new ReportEntry(target, reporter, reason, id, timestamp, newStatus);
     }
 
     @Override
@@ -94,4 +55,7 @@ public class ReportEntry implements ConfigurationSerializable {
     private static String stringValue(Object value) {
         return value == null ? "" : String.valueOf(value);
     }
+
+    // 兼容旧 getter 命名
+    public String getStatus() { return status; }
 }

@@ -65,7 +65,7 @@ public class ReportManager {
         if (writeResult == DatabaseManager.WriteResult.NO_CHANGE) {
             return BanManager.BanMutationResult.STATE_CHANGED;
         }
-        entry.setStatus("已处理");
+        entry = entry.withStatus("已处理");
         plugin.getBanManager().publishAppliedPlayerBan(banEntry, false);
         Player reporterPlayer = plugin.getServer().getPlayer(entry.getReporter());
         if (reporterPlayer != null) {

@@ -499,7 +499,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     }
                     for (WarnEntry warn : warnings) {
                         if (!warn.isRevoked()) {
-                            warn.revoke();
+                            warn = warn.revoke();
                             plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), true);
                         }
                     }

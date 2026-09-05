@@ -92,7 +92,7 @@ public class ReportCommand implements CommandExecutor {
             return;
         }
 
-        report.setStatus("受理中");
+        report = report.withStatus("受理中");
         plugin.getReportManager().updateReport(report);
         plugin.getAuditManager().log("受理举报", player.getName(), report.getTarget(), "编号: " + report.getId() + " - " + report.getReason());
 
@@ -110,7 +110,7 @@ public class ReportCommand implements CommandExecutor {
             return;
         }
 
-        report.setStatus("已关闭");
+        report = report.withStatus("已关闭");
         plugin.getReportManager().updateReport(report);
         plugin.getAuditManager().log("关闭举报", player.getName(), report.getTarget(), "编号: " + report.getId() + " - " + report.getReason());
 
@@ -128,7 +128,7 @@ public class ReportCommand implements CommandExecutor {
             Utils.sendMessage(player, plugin.prefix() + "§c你只能确认自己提交的举报。");
             return;
         }
-        report.setStatus("已读");
+        report = report.withStatus("已读");
         plugin.getReportManager().updateReport(report);
         plugin.getAuditManager().log("已读举报", player.getName(), report.getTarget(), "编号: " + reportId);
         Utils.sendMessage(player, plugin.prefix() + "§a已标记举报 " + reportId + " 为已读。");

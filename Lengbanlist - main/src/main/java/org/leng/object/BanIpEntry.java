@@ -1,90 +1,44 @@
 package org.leng.object;
 
-public class BanIpEntry {
-    private String ip;
-    private String staff;
-    private long time;
-    private String reason;
-    private boolean isAuto;
-    private boolean active;
+import java.util.Objects;
+
+public record BanIpEntry(
+        String ip,
+        String staff,
+        long time,
+        String reason,
+        boolean isAuto,
+        boolean active
+) {
+    public BanIpEntry {
+        Objects.requireNonNull(ip, "IP cannot be null");
+        Objects.requireNonNull(staff, "Staff cannot be null");
+        Objects.requireNonNull(reason, "Reason cannot be null");
+    }
 
     public BanIpEntry(String ip, String staff, long time, String reason, boolean isAuto) {
         this(ip, staff, time, reason, isAuto, true);
     }
 
-    public BanIpEntry(String ip, String staff, long time, String reason, boolean isAuto, boolean active) {
-        this.ip = ip;
-        this.staff = staff;
-        this.time = time;
-        this.reason = reason;
-        this.isAuto = isAuto;
-        this.active = active;
+    public BanIpEntry withEndTime(long newTime) {
+        return new BanIpEntry(ip, staff, newTime, reason, isAuto, active);
     }
 
-
-    public String getIp() {
-        return ip;
+    public BanIpEntry withReason(String newReason) {
+        return new BanIpEntry(ip, staff, time, newReason, isAuto, active);
     }
 
-    public void setIp(String ip) {
-        this.ip = ip;
+    public BanIpEntry withAuto(boolean newAuto) {
+        return new BanIpEntry(ip, staff, time, reason, newAuto, active);
     }
 
-    public String getStaff() {
-        return staff;
+    public BanIpEntry withActive(boolean newActive) {
+        return new BanIpEntry(ip, staff, time, reason, isAuto, newActive);
     }
-
-    public void setStaff(String staff) {
-        this.staff = staff;
-    }
-
-    public long getTime() {
-        return time;
-    }
-
-
-    public long getEndTime() {
-        return time;
-    }
-
-    public void setTime(long time) {
-        this.time = time;
-    }
-
-
-    public void setEndTime(long time) {
-        this.time = time;
-    }
-
-    public String getReason() {
-        return reason;
-    }
-
-    public void setReason(String reason) {
-        this.reason = reason;
-    }
-
-    public boolean isAuto() {
-        return isAuto;
-    }
-
-    public void setAuto(boolean isAuto) {
-        this.isAuto = isAuto;
-    }
-
-    public boolean isActive() {
-        return active;
-    }
-
-    public void setActive(boolean active) {
-        this.active = active;
-    }
-
 
     public long getRemainingTime() {
         return Math.max(0, time - System.currentTimeMillis());
     }
-
 
     public boolean isExpired() {
         return System.currentTimeMillis() > time;
@@ -94,4 +48,13 @@ public class BanIpEntry {
     public String toString() {
         return ip + ":" + staff + ":" + time + ":" + reason + ":" + isAuto + ":" + active;
     }
+
+    // 兼容旧 getter 命名
+    public String getIp() { return ip; }
+    public String getStaff() { return staff; }
+    public long getTime() { return time; }
+    public long getEndTime() { return time; }
+    public String getReason() { return reason; }
+    public boolean isAuto() { return isAuto; }
+    public boolean isActive() { return active; }
 }

@@ -96,10 +96,10 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
                 Utils.sendMessage(sender, plugin.prefix() + "§cIP " + target + " 未被封禁，无法设置封禁时间。");
                 return true;
             }
-            existingBanIp.setEndTime(TimeUtils.calculateEndTime(banDuration));
-            existingBanIp.setReason(reason);
-            existingBanIp.setAuto(isAuto);
-            result = banManager.tryUpdateIpBan(existingBanIp);
+            BanIpEntry updatedIp = existingBanIp.withEndTime(TimeUtils.calculateEndTime(banDuration))
+                    .withReason(reason)
+                    .withAuto(isAuto);
+            result = banManager.tryUpdateIpBan(updatedIp);
         } else {
 
             BanEntry existingBan = banManager.getBanEntry(target);
@@ -107,10 +107,10 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
                 Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + target + " 未被封禁，无法设置封禁时间。");
                 return true;
             }
-            existingBan.setEndTime(TimeUtils.calculateEndTime(banDuration));
-            existingBan.setReason(reason);
-            existingBan.setAuto(isAuto);
-            result = banManager.tryUpdateBan(existingBan);
+            BanEntry updatedBan = existingBan.withEndTime(TimeUtils.calculateEndTime(banDuration))
+                    .withReason(reason)
+                    .withAuto(isAuto);
+            result = banManager.tryUpdateBan(updatedBan);
         }
 
         if (!result.isApplied()) {
