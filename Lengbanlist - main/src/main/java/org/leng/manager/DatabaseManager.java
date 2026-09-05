@@ -162,13 +162,11 @@ public class DatabaseManager {
         createIndexIfMissing("audit_log", "idx_audit_log_target", "target");
 
         String currentVersion = getMeta("schema.version");
-        if (currentVersion == null || Integer.parseInt(currentVersion) < 3) {
-            migrateToV3();
+        // 委托给 SchemaMigrations 统一调度,避免散落的 if-else 迁移代码
+        SchemaMigrations.runAll(this, currentVersion);
+        if (currentVersion == null) {
+            setMeta("schema.version", String.valueOf(SchemaMigrations.CURRENT_VERSION));
         }
-        if (currentVersion == null || Integer.parseInt(currentVersion) < 4) {
-            migrateToV4();
-        }
-        setMeta("schema.version", "4");
     }
 
     private void migrateToV3() throws SQLException {
@@ -178,6 +176,7 @@ public class DatabaseManager {
         plugin.getLogger().info("数据库结构升级完成。");
     }
 
+    @SuppressWarnings("unused")
     private void migrateToV4() throws SQLException {
         addColumnIfMissing("audit_log", "prev_hash", varcharType(64) + " NOT NULL DEFAULT ''");
         if (mysql) {
@@ -185,6 +184,11 @@ public class DatabaseManager {
         } else {
             execute("INSERT OR IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
         }
+        backfillAuditChain();
+    }
+
+    /** 从头遍历审计日志，按链式哈希规则回填 prev_hash 列。供 v4 迁移调用。 */
+    void backfillAuditChain() throws SQLException {
         // 与 addAuditLogChained/verifyAudit 保持一致:row[N].prev_hash = hash(row[N-1].prev_hash, row[N-1].data)
         String prevHash = ZERO_HASH;
         AuditEntry prev = null;
@@ -200,10 +204,14 @@ public class DatabaseManager {
             }
             offset += batch.size();
         }
-        setMeta("schema.version", "4");
     }
 
-    private void migrateBanTableToV3(String table) throws SQLException {
+    /** 提供给 SchemaMigrations 访问 plugin 实例。 */
+    Lengbanlist getPlugin() {
+        return plugin;
+    }
+
+    void migrateBanTableToV3(String table) throws SQLException {
         if (!columnExists(table, "id")) {
             String idCol = mysql ? "INT AUTO_INCREMENT PRIMARY KEY" : "INTEGER PRIMARY KEY AUTOINCREMENT";
             String newTable = table + "_v3";
@@ -1146,7 +1154,7 @@ public class DatabaseManager {
         }
     }
 
-    private void addColumnIfMissing(String table, String column, String definition) throws SQLException {
+    void addColumnIfMissing(String table, String column, String definition) throws SQLException {
         if (!columnExists(table, column)) {
             execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
         }
@@ -1183,7 +1191,7 @@ public class DatabaseManager {
         return false;
     }
 
-    private void execute(String sql) throws SQLException {
+    void execute(String sql) throws SQLException {
         try (Connection connection = getConnection(); Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
@@ -1197,7 +1205,7 @@ public class DatabaseManager {
         return mysql ? "TEXT" : "TEXT";
     }
 
-    private String varcharType(int length) {
+    String varcharType(int length) {
         return mysql ? "VARCHAR(" + length + ")" : "TEXT";
     }
 
