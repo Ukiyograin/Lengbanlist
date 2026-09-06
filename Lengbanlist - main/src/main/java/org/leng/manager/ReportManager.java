@@ -42,12 +42,6 @@ public class ReportManager {
         return plugin.getDatabaseManager().getReportsByReporterAndTarget(reporter, target);
     }
 
-    public void saveReports() {
-    }
-
-    public void loadReports() {
-    }
-
     public List<ReportEntry> getPendingReports() {
         return plugin.getDatabaseManager().getPendingReports();
     }

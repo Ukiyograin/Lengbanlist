@@ -52,7 +52,7 @@ help:
   - "§7  = §b/mute"
   - "§2✦ §b/lban unmute <可选>-s <必填>玩家名 §7- §3解除禁言"
   - "§7  = §b/unmute"
-  - "§2✦ §b/lban warn <必填>玩家名 <必填>原因 §7- §3警告玩家，三次警告将自动封禁"
+  - "§2✦ §b/lban warn <必填>玩家名 <必填>原因 §7- §3警告玩家（LBAC 自动封禁：4 次→14 天，5 次→永久）"
   - "§7  = §b/warn"
   - "§2✦ §b/lban unwarn <必填>玩家名 §7- §3移除玩家警告"
   - "§7  = §b/unwarn"
@@ -79,6 +79,7 @@ help:
   - "§2✦ §b/lban models list §7- §3查看本地与云端模型"
   - "§2✦ §b/lban models install all §7- §3一键下载全部已上架模型"
   - "§2✦ §b/lban models stats §7- §3查看本服安装统计(月度精选参考)"
+  - "§2✦ §b/lban models featured §7- §3查看本月精选模型"
   - "§6§l◆ 杂项"
   - "§2✦ §b/lban list §7- §3查看封禁名单"
   - "§2✦ §b/lban list-mute §7- §3查看禁言列表"
@@ -88,6 +89,10 @@ help:
   - "§2✦ §b/lban open §7- §3打开可视化操作界面"
   - "§2✦ §b/lban reload §7- §3重新加载配置"
   - "§2✦ §b/lban info §7- §3查看插件信息"
+  - "§2✦ §b/lban handle <举报ID> <时间/auto/forever> [原因] §7- §3处理举报（GUI 按钮也会跳到此）"
+  - "§2✦ §b/lban admin §7- §3打开管理员举报处理面板"
+  - "§2✦ §b/lban tp <玩家名> §7- §3传送到该玩家身边"
+  - "§2✦ §b/setban <玩家名/IP> <时间/forever> <理由> §7- §3修改封禁时间"
   - "§b╚══════════════════════════════════╝"
   - "§2♡ 当前版本: {version} §7| §b模型: example-custom-model"
 
@@ -115,7 +120,7 @@ messages:
   mute-command-blocked: "§c你正在被禁言，无法使用此命令"
 
   # --- 警告相关 ---
-  add-warn: "§a玩家 {player} 已被警告，原因: {reason}（三次警告自动封禁）"
+  add-warn: "§a玩家 {player} 已被警告，原因: {reason}（五次警告自动永久封禁）"
   remove-warn: "§a玩家 {player} 的警告已移除"
   warn-offline: "§a离线玩家 {player} 已被警告，原因: {reason}，上线后他将收到通知"
   pending-warnings-notice: "§e你有 {count} 条待处理警告，请遵守规则！"

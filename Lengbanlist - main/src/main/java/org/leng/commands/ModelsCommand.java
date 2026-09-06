@@ -84,10 +84,17 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
     /**
      * 异步执行任务（可能含网络 IO），完成后回主线程回调。
      * 命令线程不再被 HTTP 阻塞（Folia 看门狗防护）。
+     * 异常不再静默吞掉，打日志 + 友好提示玩家。
      */
     private <T> void runOffThread(CommandSender sender, Supplier<T> task, Consumer<T> onDone) {
         CompletableFuture.supplyAsync(task)
-                .thenAccept(result -> SchedulerUtils.runTask(plugin, sender, () -> onDone.accept(result)));
+                .thenAccept(result -> SchedulerUtils.runTask(plugin, sender, () -> onDone.accept(result)))
+                .exceptionally(throwable -> {
+                    plugin.getLogger().log(java.util.logging.Level.WARNING, "[models] 异步任务执行失败", throwable);
+                    SchedulerUtils.runTask(plugin, sender, () ->
+                            Utils.sendMessage(sender, plugin.prefix() + "§c内部错误，请查看控制台日志"));
+                    return null;
+                });
     }
 
     // ====================== 子命令 ======================

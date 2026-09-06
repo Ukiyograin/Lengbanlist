@@ -63,6 +63,11 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             return false;
         }
 
+        // IP 路径之前漏了 canPunish 检查,低权限 OP 能 ban 高权限家庭 IP,补齐与 BanCommand 对齐
+        if (!plugin.getImmunityManager().canPunish(sender, args[0])) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(args[0]));
+            return false;
+        }
 
         if (plugin.getBanManager().isIpBanned(args[0])) {
             Utils.sendMessage(sender, "§cIP " + args[0] + " 已经被封禁");
@@ -101,7 +106,7 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
 
         if (escalationResult != null && escalationResult.offenseCount > 0) {
             Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
-                    args[0], escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
+                    args[0], escalationResult.offenseCount, TimeUtils.formatDuration(banDuration, TimeUtils.isEnglishLocale())));
         }
         return true;
     }

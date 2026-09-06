@@ -22,7 +22,7 @@ public class AllowMsgCommand implements CommandExecutor {
         }
 
 
-        if (!(sender instanceof Player) || !sender.isOp()) {
+        if (!sender.hasPermission("lengbanlist.allowmsg")) {
             sender.sendMessage(plugin.prefix() + "§c只有管理员可以使用此命令。");
             return true;
         }

@@ -82,29 +82,48 @@ public class TimeUtils {
 
 
     public static String formatDuration(long millis) {
-        if (millis == Long.MAX_VALUE) return "永久";
-        if (millis <= 0) return "0秒";
+        return formatDuration(millis, false);
+    }
+
+    /**
+     * 国际化时长格式。English 模型下需要英文单位,避免中英混搭。
+     * @param millis 时长(毫秒)
+     * @param english true=英文单位,false=中文单位
+     */
+    public static String formatDuration(long millis, boolean english) {
+        if (millis == Long.MAX_VALUE) return english ? "permanently" : "永久";
+        if (millis <= 0) return english ? "0 seconds" : "0秒";
 
         long seconds = TimeUnit.MILLISECONDS.toSeconds(millis);
-        if (seconds < 60) return seconds + "秒";
+        if (seconds < 60) return english ? seconds + " seconds" : seconds + "秒";
 
         long minutes = TimeUnit.MILLISECONDS.toMinutes(millis);
-        if (minutes < 60) return minutes + "分钟";
+        if (minutes < 60) return english ? minutes + " minutes" : minutes + "分钟";
 
         long hours = TimeUnit.MILLISECONDS.toHours(millis);
-        if (hours < 24) return hours + "小时";
+        if (hours < 24) return english ? hours + " hours" : hours + "小时";
 
         long days = TimeUnit.MILLISECONDS.toDays(millis);
-        if (days < 7) return days + "天";
+        if (days < 7) return english ? days + " days" : days + "天";
 
         long weeks = days / 7;
-        if (weeks < 4) return weeks + "周";
+        if (weeks < 4) return english ? weeks + " weeks" : weeks + "周";
 
         long months = days / 30;
-        if (months < 12) return months + "个月";
+        if (months < 12) return english ? months + " months" : months + "个月";
 
         long years = days / 365;
-        return years + "年";
+        return english ? years + " years" : years + "年";
+    }
+
+    /** 当前激活模型是否英文（决定 formatDuration 的单位语言）。 */
+    public static boolean isEnglishLocale() {
+        try {
+            String name = org.leng.manager.ModelManager.getInstance().getCurrentModelName();
+            return name != null && name.equalsIgnoreCase("english");
+        } catch (Exception e) {
+            return false;
+        }
     }
 
 

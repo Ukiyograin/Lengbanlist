@@ -86,6 +86,19 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
             Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
         }
 
+        // 临近 LBAC 自动封禁阈值时提醒管理员,避免反复 /warn 直接自循环触发封禁
+        // legacyWarnBased: 4→14天, 5→永久,4 次为临界
+        try {
+            int activeCount = warnManager.countActiveWarnings(target);
+            if (activeCount >= 4) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c⚠ 目标 " + target + " 当前已有 " + activeCount + " 条警告，下次违规将自动永久封禁（LBAC 升级）。");
+            } else if (activeCount == 3) {
+                Utils.sendMessage(sender, plugin.prefix() + "§e⚠ 目标 " + target + " 当前已有 " + activeCount + " 条警告，再多 1 条将触发 14 天封禁（LBAC 升级）。");
+            }
+        } catch (Exception e) {
+            // 阈值检查失败不影响主流程,静默
+        }
+
         return true;
     }
 

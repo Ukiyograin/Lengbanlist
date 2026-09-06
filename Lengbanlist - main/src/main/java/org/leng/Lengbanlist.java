@@ -321,6 +321,30 @@ public boolean reloadWebServer() {
     return true;
 }
 
+/**
+ * /lban reload 时重启定时任务（broadcast / expiryReminder）,
+ * 让 config 里的 interval 变更生效。原本只重启 broadcast（toggle 走 setBroadcastEnabled）,
+ * 其余 scheduler 不会跟着 reload 走,容易让运维以为生效实际未。
+ */
+public void restartScheduledTasks() {
+    if (broadcastTask != null) {
+        broadcastTask.cancel();
+        broadcastTask = null;
+    }
+    if (isBroadcast) {
+        startBroadcastTask();
+    }
+    if (expiryReminderTask != null) {
+        expiryReminderTask.cancel();
+        expiryReminderTask = null;
+    }
+    if (isFeatureEnabled("expiry-reminder")) {
+        long periodTicks = Math.max(20L, getConfig().getInt("expiry-reminder.interval", 60) * 20L);
+        expiryReminderTask = SchedulerUtils.runTaskTimerAsynchronously(this, new ExpiryReminderTask(this), 200L, periodTicks);
+    }
+    // historyCleanupTask 周期固定,配置变化不影响,无需重启
+}
+
 @Override
 public void onDisable() {
     getServer().getConsoleSender().sendMessage(prefix() + "§k§4正在收拾行李qwq...");
@@ -375,7 +399,8 @@ void shutdownStorage() {
     }
 
     public String prefix() {
-        return getConfig().getString("prefix");
+        // 给个默认值,避免老 config 缺 prefix 时整插件 NPE
+        return getConfig().getString("prefix", "§b[Lengbanlist]§r ");
     }
 
     public static Lengbanlist getInstance() {

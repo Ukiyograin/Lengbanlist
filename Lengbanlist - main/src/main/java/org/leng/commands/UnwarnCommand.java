@@ -107,7 +107,9 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                 warnManager.checkUnbanIfNecessary(target);
             }
         } catch (Exception e) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c处理警告时出错: " + e.getMessage());
+            // e.getMessage() 可能为 null (NumberFormatException 等),需要保护
+            String detail = e.getMessage();
+            Utils.sendMessage(sender, plugin.prefix() + "§c处理警告时出错: " + (detail == null ? e.getClass().getSimpleName() : detail));
             return false;
         }
 

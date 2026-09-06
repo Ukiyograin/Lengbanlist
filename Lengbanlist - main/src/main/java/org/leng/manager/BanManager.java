@@ -301,10 +301,4 @@ public class BanManager {
         return banEntry != null && banEntry.getReason().contains(reason);
     }
 
-    public void saveBanList() {
-    }
-
-    public void saveBanIpConfig() {
-    }
-
 }

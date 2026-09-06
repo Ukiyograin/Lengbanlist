@@ -45,11 +45,11 @@ public class CheckCommand extends Command implements CommandExecutor {
         }
 
         String target = args[0];
-        if (target.contains(".")) {
-
+        // 之前只看是否含 ".",导致 Steve.123(合法玩家名)被当 IP、IPv6(无 ".")被当玩家名
+        // 优先按 IP 形态校验,失败再走玩家路径
+        if (IpMatcher.isValidIpOrCidrOrWildcard(target) || target.contains(":")) {
             checkIpInfo(sender, target);
         } else {
-
             checkPlayerInfo(sender, target);
         }
         return true;
@@ -122,6 +122,11 @@ public class CheckCommand extends Command implements CommandExecutor {
     }
 
     private void checkIpInfo(CommandSender sender, String ip) {
+        // 严格校验,只接受合法形态的 IP/CIDR/wildcard;否则提示玩家输入有误
+        if (!IpMatcher.isValidIpOrCidrOrWildcard(ip) && !ip.contains(":")) {
+            Utils.sendMessage(sender, plugin.prefix() + "§c这不是合法的 IP 地址: §f" + ip);
+            return;
+        }
         String normalized = IpMatcher.normalizeIpOrCidr(ip);
         if (normalized != null) ip = normalized;
 

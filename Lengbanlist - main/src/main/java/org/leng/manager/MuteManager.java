@@ -99,10 +99,9 @@ public class MuteManager {
     }
 
     public void unmutePlayer(String target, String actor) {
-        boolean wasMuted;
         synchronized (muteLock) {
             List<String> storedTargets = storedTargetsFor(target);
-            wasMuted = false;
+            boolean wasMuted = false;
             for (String storedTarget : storedTargets) {
                 String cacheKey = storedTarget.toLowerCase();
                 Long cached = muteCache.get(cacheKey);
@@ -125,6 +124,31 @@ public class MuteManager {
                 org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistUnmuteEvent(target, actor == null ? "System" : actor));
             }
         }
+    }
+
+    /**
+     * 解除禁言的幂等版本：仅当目标当前确实被禁言时才执行,返回是否实际变更。
+     * 解决 UnmuteCommand 之前对未禁言目标仍广播假消息的问题。
+     */
+    public boolean unmutePlayerIfMuted(String target, String actor) {
+        synchronized (muteLock) {
+            if (!hasActiveMuteLocked(target)) {
+                return false;
+            }
+        }
+        unmutePlayer(target, actor);
+        return true;
+    }
+
+    /** 必须在持有 muteLock 的情况下调用,避免 TOCTOU。 */
+    private boolean hasActiveMuteLocked(String target) {
+        String key = target.toLowerCase();
+        Long cached = muteCache.get(key);
+        if (cached != null) {
+            return isActive(cached);
+        }
+        MuteEntry entry = db.getMute(key);
+        return entry != null && isActive(entry.getTime());
     }
 
     public void clearMuteCache() {

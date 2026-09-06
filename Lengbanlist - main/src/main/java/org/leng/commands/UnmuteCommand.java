@@ -38,7 +38,12 @@ public class UnmuteCommand implements CommandExecutor {
         }
         String normalized = IpMatcher.normalizeIpOrCidr(args[0]);
         if (normalized != null) args[0] = normalized;
-        plugin.getMuteManager().unmutePlayer(args[0], Utils.getSenderName(sender));
+        // 仅当目标实际处于禁言状态时才广播 / 审计,避免未禁言玩家被全服假解禁
+        boolean removed = plugin.getMuteManager().unmutePlayerIfMuted(args[0], Utils.getSenderName(sender));
+        if (!removed) {
+            Utils.sendMessage(sender, plugin.prefix() + "§e玩家 " + args[0] + " 当前并未被禁言");
+            return true;
+        }
         String message = ModelManager.getInstance().getCurrentModel().removeMute(args[0]);
         if (silent) {
             Utils.sendMessage(sender, message);

@@ -219,11 +219,16 @@ public class WarnManager {
         for (String entry : config.getStringList("warnings")) {
             String[] parts = entry.split(":");
             if (parts.length >= 5) {
-                WarnEntry warn = new WarnEntry(parts[0], parts[1], Long.parseLong(parts[2]), parts[3]);
-                if (Boolean.parseBoolean(parts[4])) {
-                    warn = warn.revoke();
+                try {
+                    WarnEntry warn = new WarnEntry(parts[0], parts[1], Long.parseLong(parts[2]), parts[3]);
+                    if (Boolean.parseBoolean(parts[4])) {
+                        warn = warn.revoke();
+                    }
+                    db.upsertWarning(warn);
+                } catch (NumberFormatException e) {
+                    // 单行格式损坏不阻断整个迁移,跳过即可
+                    continue;
                 }
-                db.upsertWarning(warn);
             }
         }
     }

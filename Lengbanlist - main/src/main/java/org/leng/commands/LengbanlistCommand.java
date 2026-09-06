@@ -121,6 +121,18 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 plugin.registerFeatureCommands();
                 Utils.sendMessage(sender, currentModel.reloadConfig());
                 plugin.reloadWebServer();
+                // 之前 reload 漏刷新：ThemeManager 主题、PlayerProfileHelper 缓存、MuteManager 缓存、ModelCloudManager 索引、Reminder/Broadcast 周期
+                if (plugin.getThemeManager() != null) {
+                    plugin.getThemeManager().load();
+                }
+                org.leng.utils.PlayerProfileHelper.clearCache();
+                if (plugin.getMuteManager() != null) {
+                    plugin.getMuteManager().reloadMuteCache();
+                }
+                if (plugin.getModelCloudManager() != null) {
+                    plugin.getModelCloudManager().cachedIndexOnly();
+                }
+                plugin.restartScheduledTasks();
                 break;
             case "add":
                 if (args.length >= 2 && args[1].contains(".")) {
@@ -140,7 +152,15 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     return true;
                 }
                 String[] delegateArgs = Arrays.copyOfRange(args, 1, args.length);
-                boolean isIp = delegateArgs.length > 0 && !delegateArgs[0].equalsIgnoreCase("-s") && delegateArgs[0].contains(".");
+                // 之前只看 args[0] 是否含 ".",导致 /lban add 1.2.3.4 -s 7d test 把 "-s" 错认成时间失败
+                // 剥离前导 -s 再判断,保证 IP 路径对 -s 位置不再敏感
+                int ipOffset = 0;
+                if (delegateArgs.length > 0 && delegateArgs[0].equalsIgnoreCase("-s")) {
+                    ipOffset = 1;
+                }
+                boolean isIp = delegateArgs.length > ipOffset && (
+                        IpMatcher.isValidIpOrCidrOrWildcard(delegateArgs[ipOffset])
+                                || delegateArgs[ipOffset].contains(":"));
                 if (isIp) {
                     return new BanIpCommand(plugin).onCommand(sender, null, label, delegateArgs);
                 }
@@ -156,10 +176,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 return new UnbanCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "help":
-                if (!sender.hasPermission("lengbanlist.help")) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
-                    return true;
-                }
+                // 与无参 /lban 走同一份内容,门槛保持一致（不再额外卡 lengbanlist.help,避免告诉玩家去 /lban help 又被踢）
                 currentModel.showHelp(sender);
                 break;
             case "open":
@@ -483,12 +500,16 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     if (handleEscalationResult != null && handleEscalationResult.offenseCount > 0) {
                         Utils.sendMessage(sender, currentModel.onEscalatedBan(handleTarget,
                                 handleEscalationResult.offenseCount,
-                                TimeUtils.formatDuration(handleEscalationResult.durationMillis)));
+                                TimeUtils.formatDuration(handleEscalationResult.durationMillis, TimeUtils.isEnglishLocale())));
                     }
-                    String handleDurationText = handleEndTime == Long.MAX_VALUE ? "永久" : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis());
+                    String handleDurationText = handleEndTime == Long.MAX_VALUE
+                            ? (TimeUtils.isEnglishLocale() ? "permanently" : "永久")
+                            : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis(), TimeUtils.isEnglishLocale());
                     Utils.sendMessage(sender, plugin.prefix() + "§a已处理举报 " + handleReport.getId() + "，封禁玩家 " + handleTarget + "（" + handleDurationText + "）");
                 } catch (IllegalArgumentException e) {
-                    Utils.sendMessage(sender, plugin.prefix() + e.getMessage());
+                    // e.getMessage() 可能为 null,需要保护
+                    String detail = e.getMessage();
+                    Utils.sendMessage(sender, plugin.prefix() + "§c" + (detail == null ? "参数无效" : detail));
                 }
                 break;
             case "alts":
@@ -533,7 +554,15 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
                 return new RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
             default:
+                // 未知子命令时列出可用列表,避免玩家两眼一抹黑
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
+                StringBuilder available = new StringBuilder("§6§l可用子命令： §b");
+                for (String s : new String[]{"toggle", "a", "list", "reload", "add", "remove", "help", "open",
+                        "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
+                        "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback"}) {
+                    available.append(s).append(" ");
+                }
+                Utils.sendMessage(sender, available.toString());
                 break;
         }
         return true;
@@ -556,7 +585,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 if (s.startsWith(prefix)) completions.add(s);
             }
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("models")) {
-            // /lban models <sub> [id] —— 必须在 args.length==2 分支之前（该分支 switch 无 models case）
+            // /lban models <sub> [id] —— 委派给 ModelsCommand（仅此一处分支,line 608 重复块已删）
             return new ModelsCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length == 2) {
             String sub = args[0].toLowerCase();
@@ -605,9 +634,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     }
                     break;
             }
-        } else if (args.length >= 2 && args[0].equalsIgnoreCase("models")) {
-            // /lban models <sub> [id] —— 去掉 "models" 前缀后委派给 ModelsCommand
-            return new ModelsCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("report")) {
             if (args.length == 2) {
                 String prefix = args[1].toLowerCase();

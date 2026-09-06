@@ -105,7 +105,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
 
         if (escalationResult != null && escalationResult.offenseCount > 0) {
             Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
-                    target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
+                    target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration, TimeUtils.isEnglishLocale())));
         }
         return true;
     }
