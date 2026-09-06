@@ -80,18 +80,20 @@ jobs:
     
     - name: Generate changelog from commits
       id: changelog
+      env:
+        # 用上一次 GitHub Release 的 tag（GitHub API 返回）。
+        # 之前用 git describe --tags 取 tag，但本地都是 lightweight tag，git describe 默认不匹配，
+        # 导致每次 release 都收集全部历史 commit,造成重复累计。
+        PREV_TAG: ${{ fromJSON(steps.last_release.outputs.result).tag }}
       run: |
-        # 获取上一次发布的 tag（使用 git describe）
-        PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-        
         if [ -z "$PREV_TAG" ]; then
           echo "No previous release found, collecting all commits"
           # 获取所有非 release 开头的提交
           COMMITS=$(git log --pretty=format:"%s" --no-merges | grep -v '^release:' || true)
         else
           echo "Previous release tag: $PREV_TAG"
-          # 获取自上次 tag 以来的提交，排除 release 开头的提交
-          COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"%s" --no-merges | grep -v '^release:' || true)
+          # 获取自上次 release 以来的提交,排除 release 开头的提交
+          COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%s" --no-merges | grep -v '^release:' || true)
         fi
         
         # 如果 COMMITS 为空，用占位信息
@@ -213,8 +215,11 @@ jobs:
           echo -e "${{ steps.changelog.outputs.OTHERS }}" >> release_body.md
           echo "" >> release_body.md
         fi
-        
-        echo '${{ steps.github_data.outputs.result }}' > github_data.json
+
+        # 用 heredoc 避免 shell 单引号吞掉 ${{ }} 展开（之前 bug：github_data.json 一直是字面量字符串,导致"项目动态"永远为 0）
+        cat > github_data.json <<EOF
+${{ steps.github_data.outputs.result }}
+EOF
         
         if [ -f github_data.json ] && [ -s github_data.json ] && command -v jq &> /dev/null; then
           ISSUES_COUNT=$(jq '.resolvedIssues | length' github_data.json 2>/dev/null || echo "0")
