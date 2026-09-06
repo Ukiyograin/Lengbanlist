@@ -39,6 +39,17 @@ public class CustomModel implements Model {
         return msg(key, Collections.<String, String>emptyMap());
     }
 
+    /**
+     * 天数文案（可被模型 YAML 覆盖）：
+     * {@code days-forever} 永久文案（默认"永久"）、{@code days-suffix} 单位后缀（默认" 天"）。
+     * 让 English 等非中文模型输出 "permanently" / "N days"。
+     */
+    private String banDays(int days) {
+        String forever = config.getString("days-forever", "永久");
+        String suffix = config.getString("days-suffix", " 天");
+        return days == Integer.MAX_VALUE ? forever : days + suffix;
+    }
+
     private String msg(String key, Map<String, String> placeholders) {
         String template = config.getString("messages." + key);
         if (template == null || template.isEmpty()) {
@@ -66,7 +77,10 @@ public class CustomModel implements Model {
 
     @Override
     public String toggleBroadcast(boolean enabled) {
-        return msg("toggle-broadcast", placeholders("enabled", enabled ? "开启" : "关闭"));
+        // enabled-on/enabled-off 可被模型 YAML 覆盖（English 模型用 enabled/disabled）
+        String on = config.getString("enabled-on", "开启");
+        String off = config.getString("enabled-off", "关闭");
+        return msg("toggle-broadcast", placeholders("enabled", enabled ? on : off));
     }
 
     @Override
@@ -76,7 +90,7 @@ public class CustomModel implements Model {
 
     @Override
     public String addBan(String player, int days, String reason) {
-        return msg("add-ban", placeholders("player", player, "days", Model.formatBanDays(days), "reason", reason));
+        return msg("add-ban", placeholders("player", player, "days", banDays(days), "reason", reason));
     }
 
     @Override
@@ -96,7 +110,7 @@ public class CustomModel implements Model {
 
     @Override
     public String addBanIp(String ip, int days, String reason) {
-        return msg("add-ban-ip", placeholders("ip", ip, "days", Model.formatBanDays(days), "reason", reason));
+        return msg("add-ban-ip", placeholders("ip", ip, "days", banDays(days), "reason", reason));
     }
 
     @Override
@@ -133,6 +147,11 @@ public class CustomModel implements Model {
         sb.append(msg("history-header", placeholders("player", player)));
         for (String entry : entries) {
             sb.append("\n").append(msg("history-entry-format", placeholders("entry", entry)));
+        }
+        // 可选 footer（从内置 Java 模型迁移时保持 4 段结构）
+        String footer = msg("history-footer", placeholders("player", player));
+        if (footer != null && !footer.startsWith("§c[模型") && !footer.trim().isEmpty()) {
+            sb.append("\n").append(footer);
         }
         return sb.toString();
     }

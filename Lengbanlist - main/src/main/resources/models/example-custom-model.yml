@@ -8,19 +8,18 @@
 # 4. 执行 /lban reload 或重启服务器即可加载
 #
 # 注意事项：
-# - 模型名称不能与内置模型冲突
-# - 内置模型列表：Default, English, HuTao, Furina, Zhongli,
-#   Keqing, Xiao, Ayaka, Zero, Herta, Nahida, Klee, YaeMiko
-# - 如果名称冲突，自定义模型不会被加载（内置模型优先）
+# - 模型名称不能与已加载模型冲突（重复的会被跳过）
+# - 预置内置模型：default.yml / english.yml（首次启动自动复制）
+# - 角色风格模型通过 /lban models refresh + install 从云端仓库获取
 # - 支持 Minecraft 颜色代码（§0-§f, §l, §n, §o 等）
 #
 # 可用占位符：
 #   {player}    - 玩家名
 #   {reason}    - 处罚原因
-#   {days}      - 天数（永久封禁自动显示为"永久"）
+#   {days}      - 天数（永久封禁自动显示为"永久"；可用 days-forever/days-suffix 覆盖格式）
 #   {ip}        - IP 地址
 #   {count}     - 数量（如警告次数、记录条数）
-#   {enabled}   - 自动替换为"开启"或"关闭"
+#   {enabled}   - 自动替换为"开启"或"关闭"（可用 enabled-on/enabled-off 覆盖词）
 #   {type}      - 处罚类型（如"封禁"、"禁言"）
 #   {target}    - 目标名称
 #   {remaining} - 剩余时间

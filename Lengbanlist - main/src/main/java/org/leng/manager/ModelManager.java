@@ -33,29 +33,22 @@ public class ModelManager {
     }
 
     private ModelManager() {
-        loadModel("Default");
-        loadModel("English");
-        loadModel("HuTao");
-        loadModel("Furina");
-        loadModel("Zhongli");
-        loadModel("Keqing");
-        loadModel("Xiao");
-        loadModel("Ayaka");
-        loadModel("Zero");
-        loadModel("Herta");
-        loadModel("Nahida");
-        loadModel("Klee");
-        loadModel("YaeMiko");
-
+        // 内置模型已全部 YAML 化(Default/English/example-custom-model 预置在 models/),
+        // 角色模型从 Lengbanlist-Models 云端仓库拉取 —— 此处只做 YAML 扫描加载
         loadCustomModels();
 
         String modelName = Lengbanlist.getInstance().getConfig().getString("Model", "Default");
+        if (!models.containsKey(modelName.toLowerCase())) {
+            // 配置的模型不可用(未安装/云端未拉到)时回退 Default,避免启动即切换失败
+            Lengbanlist.getInstance().getLogger().warning("配置的模型 " + modelName + " 当前不可用，回退到 Default（可 /lban models refresh 拉取）");
+            modelName = "Default";
+        }
         switchModel(modelName.toLowerCase());
     }
 
     private void loadCustomModels() {
-        // 重新加载前，先移除上一次加载的自定义模型（内置模型会重新注册，无需清理）
-        models.values().removeIf(model -> model instanceof CustomModel);
+        // 重新加载前，先移除上一次加载的模型（YAML 模型重新加载,防止改名/删除后残留）
+        models.clear();
 
         File modelsDir = new File(Lengbanlist.getInstance().getDataFolder(), "models");
         if (!modelsDir.exists() || !modelsDir.isDirectory()) {
@@ -97,17 +90,6 @@ public class ModelManager {
                     Lengbanlist.getInstance().getLogger().warning("加载自定义模型文件 " + file.getName() + " 失败：" + e.getMessage());
                 }
             }
-        }
-    }
-
-    public static void loadModel(String modelName) {
-        try {
-            Class<?> modelClass = Class.forName("org.leng.models." + modelName);
-            Model model = (Model) modelClass.getDeclaredConstructor().newInstance();
-            models.put(modelName.toLowerCase(), model);
-        } catch (Exception e) {
-            Lengbanlist.getInstance().getServer().getConsoleSender().sendMessage("§c模型 " + modelName + " 加载失败！");
-            Lengbanlist.getInstance().getLogger().log(java.util.logging.Level.WARNING, "模型 " + modelName + " 加载失败", e);
         }
     }
 
