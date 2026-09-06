@@ -110,10 +110,25 @@ public class ThemeManager {
         save();
     }
 
+    /**
+     * 恢复默认背景，同时清理 web-assets/background 下所有已上传文件
+     * （避免占磁盘；恢复默认后用户可通过再次上传切换）。
+     */
     public void resetBackground() {
         this.backgroundType = "default";
         this.backgroundUrl = "";
         this.backgroundFile = "";
+        // 清理上传目录（专用目录，删除全部文件安全）
+        File[] files = webAssetsDir.listFiles();
+        if (files != null) {
+            for (File f : files) {
+                if (f.isFile()) {
+                    if (!f.delete()) {
+                        f.deleteOnExit();
+                    }
+                }
+            }
+        }
         save();
     }
 

@@ -114,6 +114,7 @@ public class WebServer {
         new ThemeController(plugin, authManager).registerRoutes(server);
         new AdminController(plugin, authManager).registerRoutes(server);
         new ExportController(plugin, authManager).registerRoutes(server);
+        new StatsController(plugin, authManager).registerRoutes(server);
     }
 
     // ============ 静态资源 ============

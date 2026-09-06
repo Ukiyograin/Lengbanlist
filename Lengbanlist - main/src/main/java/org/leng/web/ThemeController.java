@@ -62,6 +62,11 @@ public class ThemeController extends WebController {
                 if (json.has("background_url")) {
                     theme.setBackgroundUrl(json.get("background_url").getAsString());
                 }
+                // 应用已上传的背景文件（配合 /api/theme/upload 使用）
+                if (json.has("background_file")) {
+                    String file = json.get("background_file").getAsString();
+                    theme.setBackgroundFile(file);
+                }
                 if (json.has("reset_background") && json.get("reset_background").getAsBoolean()) {
                     theme.resetBackground();
                 }

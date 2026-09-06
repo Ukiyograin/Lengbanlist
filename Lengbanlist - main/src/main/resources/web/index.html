@@ -171,6 +171,7 @@ tr:hover td { background: var(--bg-hover); }
 .alert-info { background: rgba(79,195,247,.1); color: var(--accent); border: 1px solid rgba(79,195,247,.15); }
 .alert-warning { background: rgba(255,167,38,.1); color: #ffa726; border: 1px solid rgba(255,167,38,.15); }
 .hidden { display: none !important; }
+.text-muted { color: var(--text-muted); font-size: 13px; }
 .section-title { font-size: 13px; color: var(--text-secondary); margin: 20px 0 10px; font-weight: 600; letter-spacing: .5px; }
 .stats-grid-sm { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 .sm-card { background: var(--bg-sm-card); border-radius: 8px; padding: 14px; text-align: center; border: 1px solid var(--border-default); }
@@ -291,6 +292,7 @@ td.context-row { cursor: context-menu; }
     <button class="tab" onclick="switchTab('history')" data-tab="history">处罚历史</button>
     <button class="tab" onclick="switchTab('audit')" data-tab="audit">审计日志</button>
     <button class="tab" onclick="switchTab('actions')" data-tab="actions">快捷操作</button>
+    <button class="tab" onclick="switchTab('settings')" data-tab="settings">面板设置</button>
   </div>
 
   <!-- Dashboard -->
@@ -468,6 +470,48 @@ td.context-row { cursor: context-menu; }
       </div>
     </div>
   </div>
+
+  <!-- Panel settings (背景壁纸 + 按钮显隐) -->
+  <div class="tab-content" id="tabSettings">
+    <div class="card">
+      <div class="card-title">面板背景</div>
+      <div class="form-group">
+        <label>背景来源</label>
+        <select id="bgType" onchange="onBgTypeChange()">
+          <option value="default">默认（必应每日壁纸）</option>
+          <option value="url">自定义图片 URL</option>
+          <option value="upload">上传图片</option>
+        </select>
+      </div>
+      <div class="form-group hidden" id="bgUrlRow">
+        <label>图片 URL（https://…）</label>
+        <input type="text" id="bgUrl" placeholder="https://example.com/bg.png">
+      </div>
+      <div class="form-group hidden" id="bgUploadRow">
+        <label>上传壁纸（png/jpg/webp/gif，≤5MB）</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="file" id="bgFile" accept=".png,.jpg,.jpeg,.webp,.gif" class="hidden" onchange="onFilePicked()">
+          <button class="btn" onclick="document.getElementById('bgFile').click()">选择文件</button>
+          <span id="bgFileName" class="text-muted">未选择</span>
+        </div>
+        <div class="text-muted" style="margin-top:4px;">选择文件后点下方「保存背景」即可上传并应用</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button class="btn btn-primary" onclick="saveThemeSettings()">保存背景</button>
+        <button class="btn" onclick="resetBackground()">恢复默认背景</button>
+      </div>
+      <div id="bgResult" class="hidden" style="margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">隐藏功能按钮</div>
+      <div class="text-muted" style="margin-bottom:10px;">勾选后对应按钮/功能将从面板隐藏（服务端仍可通过命令操作）</div>
+      <div id="btnChecks" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;"></div>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <button class="btn btn-primary" onclick="saveHiddenButtons()">保存按钮显隐</button>
+      </div>
+      <div id="btnResult" class="hidden" style="margin-top:8px;"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -535,6 +579,7 @@ async function doLogin() {
     document.getElementById('loginOverlay').classList.add('hidden');
     document.getElementById('headerInfo').textContent = currentUser;
     loadDashboard();
+    loadThemeSettings();
   } else {
     showLoginError(res.data.error || '登录失败');
   }
@@ -570,6 +615,173 @@ function switchTab(name) {
   else if (name === 'mutelist') { loadMuteList(); }
   else if (name === 'reports') { loadReports(); }
   else if (name === 'audit') { loadAudit(); }
+  else if (name === 'settings') { loadThemeSettings(); }
+}
+
+/* ================= 面板设置（背景 + 按钮显隐） ================= */
+
+var btnLabels = {
+  ban: '封禁操作', unban: '解封操作', mute: '禁言操作', unmute: '解除禁言',
+  warn: '警告操作', report: '举报管理', audit: '审计日志', player: '玩家查询',
+  ip: 'IP 查询', history: '处罚历史', alts: '小号查询', broadcast: '全服广播'
+};
+
+function applyBackground(servedUrl) {
+  var bg = servedUrl || 'https://api.dujin.org/bing/1920.php';
+  document.body.style.backgroundImage = "url('" + bg + "')";
+}
+
+async function loadThemeSettings() {
+  var res = await api('/api/theme');
+  if (!res.ok) { return; }
+  var t = res.data;
+  var type = t.background_type || 'default';
+  document.getElementById('bgType').value = type;
+  document.getElementById('bgUrl').value = t.background_url || '';
+  onBgTypeChange();
+  applyBackground(t.served_url || '');
+
+  // 渲染按钮显隐复选框
+  var checks = document.getElementById('btnChecks');
+  checks.innerHTML = '';
+  var hidden = t.hidden_buttons || [];
+  var all = t.all_buttons || Object.keys(btnLabels);
+  all.forEach(function(id) {
+    var label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = id;
+    cb.checked = hidden.indexOf(id) >= 0;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(btnLabels[id] || id));
+    checks.appendChild(label);
+  });
+  // 应用到页面（隐藏对应 tab 入口）
+  applyHiddenButtons(hidden);
+}
+
+/* key → 页签映射：被勾选的功能从面板入口隐藏 */
+var HIDDEN_BUTTON_TABS = {
+  ban: 'ban', unban: 'ban', warn: 'ban',
+  mute: 'mutelist', unmute: 'mutelist',
+  report: 'reports', audit: 'audit',
+  player: 'players', alts: 'players',
+  history: 'history', ip: 'banlist',
+  broadcast: 'actions'
+};
+
+function applyHiddenButtons(hidden) {
+  // 先恢复全部页签可见,再按隐藏集合隐藏
+  document.querySelectorAll('#tabBar .tab').forEach(function(t) {
+    t.classList.remove('hidden');
+  });
+  (hidden || []).forEach(function(key) {
+    var tabName = HIDDEN_BUTTON_TABS[key];
+    if (!tabName) return;
+    var btn = document.querySelector('.tab[data-tab="' + tabName + '"]');
+    if (btn) btn.classList.add('hidden');
+  });
+  // 若当前激活页签被隐藏,跳回概览
+  var active = document.querySelector('#tabBar .tab.active');
+  if (active && active.classList.contains('hidden')) {
+    switchTab('dashboard');
+  }
+}
+
+function onBgTypeChange() {
+  var type = document.getElementById('bgType').value;
+  document.getElementById('bgUrlRow').classList.toggle('hidden', type !== 'url');
+  document.getElementById('bgUploadRow').classList.toggle('hidden', type !== 'upload');
+}
+
+async function saveThemeSettings() {
+  var type = document.getElementById('bgType').value;
+  if (type === 'upload') {
+    // 上传类型:选文件后直接上传+应用（无需额外按钮）
+    if (!document.getElementById('bgFile').files || document.getElementById('bgFile').files.length === 0) {
+      showMsg('bgResult', '请先点击「选择文件」选取本地图片', true);
+      return;
+    }
+    await uploadBackground();
+    return;
+  }
+  var payload = {};
+  if (type === 'url') {
+    var url = document.getElementById('bgUrl').value.trim();
+    if (!url) { showMsg('bgResult', '请填写图片 URL', true); return; }
+    payload.background_url = url;
+  }
+  var res = await api('/api/theme', { method: 'POST', body: JSON.stringify(payload) });
+  if (res.ok) {
+    showMsg('bgResult', '背景设置已保存 ✓');
+    loadThemeSettings();
+  } else {
+    showMsg('bgResult', (res.data && res.data.error) || '保存失败', true);
+  }
+}
+
+async function resetBackground() {
+  var res = await api('/api/theme', { method: 'POST', body: JSON.stringify({ reset_background: true }) });
+  if (res.ok) { showMsg('bgResult', '已恢复默认背景 ✓'); loadThemeSettings(); }
+  else showMsg('bgResult', (res.data && res.data.error) || '重置失败', true);
+}
+
+function onFilePicked() {
+  var input = document.getElementById('bgFile');
+  var nameSpan = document.getElementById('bgFileName');
+  if (input.files && input.files.length > 0) {
+    nameSpan.textContent = input.files[0].name;
+  } else {
+    nameSpan.textContent = '未选择';
+  }
+}
+
+async function uploadBackground() {
+  var input = document.getElementById('bgFile');
+  if (!input.files || input.files.length === 0) return;
+  var file = input.files[0];
+  // 简单类型 + 大小校验（后端还会再校验）
+  if (file.size > 5 * 1024 * 1024) { showMsg('bgResult', '文件超过 5MB 上限', true); return; }
+
+  var res = await fetch(BASE + '/api/theme/upload', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Disposition': 'attachment; filename="' + encodeURIComponent(file.name) + '"'
+    },
+    body: file
+  });
+  var text = await res.text();
+  var data = {};
+  try { data = JSON.parse(text); } catch(e) {}
+  if (res.ok && data.success) {
+    showMsg('bgResult', '上传成功 ✓ 背景已切换为上传图片');
+    // 上传成功后自动应用上传背景
+    var saveRes = await api('/api/theme', { method: 'POST', body: JSON.stringify({ background_file: data.filename }) });
+    if (!saveRes.ok) { showMsg('bgResult', '上传成功但应用失败', true); }
+    loadThemeSettings();
+  } else {
+    showMsg('bgResult', (data.error) || '上传失败', true);
+  }
+}
+
+async function saveHiddenButtons() {
+  var checked = [];
+  document.querySelectorAll('#btnChecks input[type="checkbox"]:checked').forEach(function(cb) {
+    checked.push(cb.value);
+  });
+  var res = await api('/api/theme', { method: 'POST', body: JSON.stringify({ hidden_buttons: checked }) });
+  if (res.ok) { showMsg('btnResult', '按钮显隐已保存 ✓'); }
+  else showMsg('btnResult', (res.data && res.data.error) || '保存失败', true);
+}
+
+function showMsg(id, text, isError) {
+  var el = document.getElementById(id);
+  el.textContent = text;
+  el.className = isError ? 'alert alert-error' : 'alert alert-success';
+  el.classList.remove('hidden');
+  setTimeout(function() { el.classList.add('hidden'); }, 4000);
 }
 
 function onDurationChange() {
@@ -1025,6 +1237,7 @@ function acceptEula() {
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('headerInfo').textContent = currentUser || '已登录';
         loadDashboard();
+        loadThemeSettings();
       }
     });
   }
@@ -1040,6 +1253,7 @@ function acceptEula() {
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('headerInfo').textContent = currentUser || '已登录';
         loadDashboard();
+        loadThemeSettings();
       } else {
         localStorage.removeItem('lengbanlist_token');
       }
