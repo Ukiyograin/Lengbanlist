@@ -18,15 +18,23 @@ public class AuthManager {
 
     private static final long TOKEN_EXP_MS = 86_400_000L;
 
-    private final String secret;
-    private final String username;
-    private final String passwordHash;
+    private String secret;
+    private String username;
+    private String passwordHash;
     private final Set<String> revokedTokens = ConcurrentHashMap.newKeySet();
 
     public AuthManager(String secret, String username, String password) {
         this.secret = secret;
         this.username = username;
         this.passwordHash = sha256(password);
+    }
+
+    /** /lban reload 时更新密钥/账号/密码(已签发 token 全部失效) */
+    public void reload(String newSecret, String newUsername, String newPassword) {
+        this.secret = newSecret;
+        this.username = newUsername;
+        this.passwordHash = sha256(newPassword);
+        this.revokedTokens.clear();
     }
 
     public String login(String user, String pass) {

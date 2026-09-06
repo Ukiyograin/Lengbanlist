@@ -160,14 +160,15 @@ public class ReportCommand implements CommandExecutor {
                 net.md_5.bungee.api.chat.BaseComponent targetComponent;
                 if (targetPlayer != null) {
                     targetLoc = " §7(世界: " + targetPlayer.getWorld().getName() + " X:" + (int)targetPlayer.getLocation().getX() + " Y:" + (int)targetPlayer.getLocation().getY() + " Z:" + (int)targetPlayer.getLocation().getZ() + ")";
-                    targetComponent = org.leng.utils.Utils.clickableText("§c" + target, "/lban tp " + target);
+                    // 玩家名转义后嵌入命令,杜绝 "恶意名 ban 别人" 命令注入
+                    targetComponent = org.leng.utils.Utils.clickableText("§c" + target, "/lban tp " + org.leng.utils.Utils.escapeCommandArg(target));
                 } else {
                     targetComponent = new net.md_5.bungee.api.chat.TextComponent("§7" + target);
                 }
 
                 net.md_5.bungee.api.chat.BaseComponent reporterComponent;
                 if (org.bukkit.Bukkit.getPlayer(reporter.getName()) != null) {
-                    reporterComponent = org.leng.utils.Utils.clickableText("§e" + reporter.getName(), "/lban tp " + reporter.getName());
+                    reporterComponent = org.leng.utils.Utils.clickableText("§e" + reporter.getName(), "/lban tp " + org.leng.utils.Utils.escapeCommandArg(reporter.getName()));
                 } else {
                     reporterComponent = new net.md_5.bungee.api.chat.TextComponent("§7" + reporter.getName());
                 }

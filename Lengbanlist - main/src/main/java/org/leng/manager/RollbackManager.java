@@ -66,6 +66,27 @@ public class RollbackManager {
      * @param executor 发起回滚的管理员（记录为恢复操作的执行人，出现在审计日志中）
      * @return 回滚结果统计
      */
+    /**
+     * /lban rollback 预览模式: 只统计匹配条数, 不动数据库, 避免误操作前看到破坏半径。
+     */
+    public int previewCount(String actor, long fromMillis, long toMillis, String type) {
+        if (actor == null || actor.trim().isEmpty() || fromMillis > toMillis) {
+            return 0;
+        }
+        List<AuditEntry> logs = plugin.getDatabaseManager().getAuditLogsByActorInRange(actor.trim(), fromMillis, toMillis);
+        Map<String, AuditEntry> toApply = new LinkedHashMap<>();
+        for (AuditEntry log : logs) {
+            String action = log.getAction() == null ? "" : log.getAction();
+            if (!isSupported(action)) continue;
+            if (type != null && !type.trim().isEmpty() && !typeMatches(type.trim(), action)) continue;
+            String target = log.getTarget() == null ? "" : log.getTarget();
+            if (target.isEmpty()) continue;
+            String key = action + ":" + target.toLowerCase();
+            toApply.putIfAbsent(key, log);
+        }
+        return toApply.size();
+    }
+
     public RollbackResult rollback(String actor, long fromMillis, long toMillis, String type, String executor) {
         RollbackResult result = new RollbackResult();
         String rollbackActor = executor == null || executor.trim().isEmpty() ? "CONSOLE" : executor.trim();
@@ -100,6 +121,7 @@ public class RollbackManager {
             }
         }
 
+        // /lban rollback 的预览模式:只统计匹配条数,不动数据库,避免误操作前看到破坏半径
         for (Map.Entry<String, AuditEntry> entry : toApply.entrySet()) {
             AuditEntry log = entry.getValue();
             String action = log.getAction();

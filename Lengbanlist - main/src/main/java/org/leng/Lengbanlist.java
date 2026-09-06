@@ -286,11 +286,21 @@ public void registerFeatureCommands() {
     setFeatureExecutor("check", "check", new CheckCommand(Lengbanlist.this));
     setFeatureExecutor("report", "report", new ReportCommand(Lengbanlist.this));
     setFeatureExecutor("admin", "admin", new AdminReportCommand(Lengbanlist.this));
-    setFeatureExecutor("kick", "kick", new KickCommand(Lengbanlist.this));
+    KickCommand kickCmd = new KickCommand(Lengbanlist.this);
+    setFeatureExecutor("kick", "kick", kickCmd);
+    PluginCommand kick = getCommand("kick");
+    if (isFeatureEnabled("kick") && kick != null) {
+        kick.setTabCompleter(kickCmd);
+    }
     setFeatureExecutor("info", "info", new InfoCommand(Lengbanlist.this));
     setFeatureExecutor("chat-filter", "allowmsg", new AllowMsgCommand(Lengbanlist.this));
     setFeatureExecutor("warn", "warnmsg", new WarnMsgCommand(Lengbanlist.this));
-    setFeatureExecutor("setban", "setban", new SetBanCommand(Lengbanlist.this));
+    SetBanCommand setbanCmd = new SetBanCommand(Lengbanlist.this);
+    setFeatureExecutor("setban", "setban", setbanCmd);
+    PluginCommand setban = getCommand("setban");
+    if (isFeatureEnabled("setban") && setban != null) {
+        setban.setTabCompleter(setbanCmd);
+    }
     HistoryCommand historyCmd = new HistoryCommand(Lengbanlist.this);
     setFeatureExecutor("history", "history", historyCmd);
     PluginCommand history = getCommand("history");

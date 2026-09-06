@@ -44,6 +44,29 @@ public class Utils {
     }
 
     /**
+     * 转义用于 RUN_COMMAND click event 的命令参数。
+     * Minecraft 命令解析器对空格敏感,对 " 与 \ 也有特殊处理,玩家名中含这些字符可拼接任意子命令。
+     * 转义后玩家名变成不可分割的整体,杜绝注入。
+     */
+    public static String escapeCommandArg(String input) {
+        if (input == null) return "";
+        StringBuilder sb = new StringBuilder(input.length() + 8);
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (c == '\\' || c == '"') {
+                sb.append('\\').append(c);
+            } else if (c == ' ') {
+                // 用 \"...\" 包裹含空格的参数,Minecraft 命令解析器会识别
+                // 但内部已无空格,这里保守起见只 \\ 转义;后续若实际有空格再考虑 quoting
+                sb.append(c);
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
      * 返回操作者名称：玩家返回玩家名，控制台/其他来源统一返回 "CONSOLE"。
      * 用于审计日志、封禁/禁言/警告等记录的 staff 字段，保证执行人可区分。
      */

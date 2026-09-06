@@ -150,8 +150,15 @@ public class ThemeController extends WebController {
             }
             ThemeManager theme = plugin.getThemeManager();
             java.io.File file = new java.io.File(theme.getWebAssetsDir(), filename);
-            String assetsRoot = theme.getWebAssetsDir().getAbsolutePath();
-            if (!file.exists() || !file.getAbsolutePath().startsWith(assetsRoot)) {
+            // 之前用 startsWith 校验前缀会被 /path/web-assets-evil/file.png 绕过
+            // 改用 Path.normalize + canonical path 比较,杜绝 ../ 与同名绕过
+            java.io.File assetsRoot = theme.getWebAssetsDir().getCanonicalFile();
+            java.io.File canonicalFile = file.getCanonicalFile();
+            if (!canonicalFile.toPath().startsWith(assetsRoot.toPath())) {
+                WebResponse.sendError(exchange, 400, "非法文件名");
+                return;
+            }
+            if (!canonicalFile.exists()) {
                 WebResponse.sendError(exchange, 404, "文件不存在");
                 return;
             }

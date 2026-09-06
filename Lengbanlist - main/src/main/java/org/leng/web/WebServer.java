@@ -85,6 +85,23 @@ public class WebServer {
         }
     }
 
+    /**
+     * /lban reload 时刷新 AuthManager 密钥,已签发 token 全部失效(强制重新登录)。
+     * 不重启 HTTP server,避免运维中断正在用的面板。
+     */
+    public void reloadAuth() {
+        if (authManager == null) return;
+        String secret = plugin.getConfig().getString("web.jwt-secret", "change-this-to-a-random-secret-key");
+        String username = plugin.getConfig().getString("web.admin-username", "admin");
+        String password = plugin.getConfig().getString("web.admin-password", "lban123");
+        authManager.reload(secret, username, password);
+        plugin.getLogger().info("Web 鉴权配置已刷新,已签发 token 全部失效");
+    }
+
+    public AuthManager getAuthManager() {
+        return authManager;
+    }
+
     private boolean validateWebCredentials(String secret, String password) {
         boolean defaultSecret = "change-this-to-a-random-secret-key".equals(secret);
         boolean defaultPassword = "lban123".equals(password) || "admin123".equals(password);

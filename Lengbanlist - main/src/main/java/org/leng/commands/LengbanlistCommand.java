@@ -133,6 +133,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     plugin.getModelCloudManager().cachedIndexOnly();
                 }
                 plugin.restartScheduledTasks();
+                if (plugin.getWebServer() != null) {
+                    plugin.getWebServer().reloadAuth();
+                }
                 break;
             case "add":
                 if (args.length >= 2 && args[1].contains(".")) {

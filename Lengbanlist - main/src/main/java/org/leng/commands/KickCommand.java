@@ -15,6 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class KickCommand implements CommandExecutor, TabCompleter {
+    /** 发送者上次踢出时间戳,简单滑动窗口冷却,防恶意刷屏触发审计爆炸 */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> LAST_KICK = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long KICK_COOLD_MS = 1500L;
+
     private final Lengbanlist plugin;
 
     public KickCommand(Lengbanlist plugin) {
@@ -33,6 +37,16 @@ public class KickCommand implements CommandExecutor, TabCompleter {
             Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
             return true;
         }
+
+        // 防止一秒内刷 20 条踢出触发审计爆炸,简单发送者级滑动窗口冷却
+        String senderKey = Utils.getSenderName(sender);
+        long now = System.currentTimeMillis();
+        Long last = LAST_KICK.get(senderKey);
+        if (last != null && now - last < KICK_COOLD_MS) {
+            Utils.sendMessage(sender, plugin.prefix() + "§e操作过于频繁,请稍候再试");
+            return true;
+        }
+        LAST_KICK.put(senderKey, now);
 
 
         boolean silent = false;
