@@ -5,21 +5,20 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.utils.IpGeoLookup;
+import org.leng.utils.SaveIP;
 import org.leng.utils.SchedulerUtils;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.InetSocketAddress;
 
 
 public class GetIPCommand implements CommandExecutor {
     private final Lengbanlist plugin;
+    private final IpGeoLookup ipGeoLookup;
 
     public GetIPCommand(Lengbanlist plugin) {
         this.plugin = plugin;
+        this.ipGeoLookup = new IpGeoLookup(plugin);
     }
 
     @Override
@@ -42,6 +41,7 @@ public class GetIPCommand implements CommandExecutor {
                 sender.sendMessage(plugin.prefix() + "§c请指定一个玩家名称，例如: /lban getip <玩家名称>");
             }
         } else {
+            // 在线：拿实时地址；离线：拿 SaveIP 缓存（兼容 /lban getip 离线查询能力）
             Player targetPlayer = plugin.getServer().getPlayer(args[0]);
             if (targetPlayer != null) {
                 java.net.InetSocketAddress addr = targetPlayer.getAddress();
@@ -51,7 +51,12 @@ public class GetIPCommand implements CommandExecutor {
                 }
                 showIpLocation(sender, addr.getAddress().getHostAddress(), "玩家 " + targetPlayer.getName());
             } else {
-                sender.sendMessage(plugin.prefix() + "§c未找到玩家：" + args[0]);
+                String cachedIp = SaveIP.getIP(args[0]);
+                if (cachedIp == null) {
+                    sender.sendMessage(plugin.prefix() + "§c未找到玩家：" + args[0]);
+                    return true;
+                }
+                showIpLocation(sender, cachedIp, "玩家 " + args[0]);
             }
         }
         return true;
@@ -81,28 +86,9 @@ public class GetIPCommand implements CommandExecutor {
 
     private void getPlayerLocationAsync(String ip, CommandSender sender, LocationInfoCallback callback) {
         SchedulerUtils.runAsync(plugin, () -> {
-            String locationInfo = getIPLocation(ip);
+            String locationInfo = ipGeoLookup.lookup(ip);
             SchedulerUtils.runTask(plugin, sender, () -> callback.onLocationInfoReceived(locationInfo));
         });
-    }
-
-    private String getIPLocation(String ip) {
-        String apiUrl = "https://ip-api.com/json/" + ip + "?lang=zh-CN";
-        try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(3000, 3000)) {
-            String response = http.get(apiUrl, "Lengbanlist-IPLoc/1.0", "*/*");
-            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
-            if (jsonResponse.get("status").getAsString().equals("success")) {
-                String country = jsonResponse.get("country").getAsString();
-                String regionName = jsonResponse.get("regionName").getAsString();
-                String city = jsonResponse.get("city").getAsString();
-                return country + ", " + regionName + ", " + city;
-            } else {
-                plugin.getLogger().warning("[Lengbanlist] IP API 请求失败，错误信息: " + jsonResponse.get("message").getAsString());
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("[Lengbanlist] Failed to fetch location for IP: " + ip + " - " + e.getMessage());
-        }
-        return null;
     }
 
     public interface LocationInfoCallback {

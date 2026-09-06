@@ -11,8 +11,6 @@ import org.leng.utils.Utils;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Instant;

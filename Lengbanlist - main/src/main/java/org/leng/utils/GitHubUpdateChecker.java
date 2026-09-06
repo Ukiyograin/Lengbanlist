@@ -8,15 +8,12 @@ import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.leng.Lengbanlist;
 
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
@@ -142,8 +139,7 @@ public class GitHubUpdateChecker {
                 Lengbanlist.getInstance().getLogger().info("哇塞，喵呜现在是最新版本！QwQ");
             }
         } catch (Exception e) {
-            Lengbanlist.getInstance().getLogger().warning("检测更新时出错: " + e.getMessage());
-            e.printStackTrace();
+            Lengbanlist.getInstance().getLogger().log(java.util.logging.Level.WARNING, "检测更新时出错", e);
         }
     }
 

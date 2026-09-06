@@ -107,7 +107,7 @@ public class ModelManager {
             models.put(modelName.toLowerCase(), model);
         } catch (Exception e) {
             Lengbanlist.getInstance().getServer().getConsoleSender().sendMessage("§c模型 " + modelName + " 加载失败！");
-            e.printStackTrace();
+            Lengbanlist.getInstance().getLogger().log(java.util.logging.Level.WARNING, "模型 " + modelName + " 加载失败", e);
         }
     }
 

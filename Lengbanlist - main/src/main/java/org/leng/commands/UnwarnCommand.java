@@ -84,13 +84,21 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                 }
             } else {
 
+                // 批量撤销：reason 列出所有 ID，与 /lban unwarn 保持一致,确保 rollback 能精确定位
+                StringBuilder reasonBuilder = new StringBuilder();
                 for (WarnEntry warning : allWarnings) {
-                    if (!warning.isRevoked()) {
-                        warning = warning.revoke();
-                        plugin.getDatabaseManager().updateWarningRevoked(warning.getId(), true);
+                    if (warning.isRevoked()) {
+                        continue;
                     }
+                    warning = warning.revoke();
+                    plugin.getDatabaseManager().updateWarningRevoked(warning.getId(), true);
+                    if (reasonBuilder.length() > 0) {
+                        reasonBuilder.append(",");
+                    }
+                    reasonBuilder.append("警告ID: ").append(warning.getId());
                 }
-                plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, "全部警告");
+                String reason = reasonBuilder.length() == 0 ? "全部警告" : reasonBuilder.toString();
+                plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, reason);
                 if (!silent) {
                     Utils.sendMessage(sender, plugin.prefix() + "§a已移除玩家 " + target + " 的所有警告");
                 }

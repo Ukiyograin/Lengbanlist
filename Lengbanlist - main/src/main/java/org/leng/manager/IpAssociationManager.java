@@ -3,10 +3,6 @@ package org.leng.manager;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;

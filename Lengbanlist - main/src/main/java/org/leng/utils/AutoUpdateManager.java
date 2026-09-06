@@ -4,15 +4,8 @@ import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.Lengbanlist;
 
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLSocketFactory;
 import java.io.*;
 import java.lang.reflect.Method;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -69,8 +62,7 @@ public class AutoUpdateManager {
                 logger.info("你正在使用最新版本：" + currentVersion);
             }
         } catch (Exception e) {
-            logger.warning("检查更新时出错: " + e.getMessage());
-            e.printStackTrace();
+            logger.log(java.util.logging.Level.WARNING, "检查更新时出错", e);
         }
     }
 
