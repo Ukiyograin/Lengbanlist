@@ -221,11 +221,17 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不认识这个模型喵。");
                     StringBuilder availableModels = new StringBuilder("§6§l可用模型： §b");
                     for (String name : ModelManager.getInstance().getModels().keySet()) {
-                        availableModels.append(modelName).append(" ");
+                        availableModels.append(name).append(" ");
                     }
                     Utils.sendMessage(sender, availableModels.toString());
                 }
                 break;
+            case "models":
+                if (!sender.hasPermission("lengbanlist.model")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                return new ModelsCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "mute":
                 if (!plugin.isFeatureEnabled("mute")) {
                     plugin.sendFeatureDisabled(sender);
@@ -544,11 +550,14 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
         if (args.length == 1) {
             String prefix = args[0].toLowerCase();
             String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
-                    "getip", "model", "mute", "unmute", "list-mute", "warn", "unwarn",
+                    "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
                     "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback"};
             for (String s : subs) {
                 if (s.startsWith(prefix)) completions.add(s);
             }
+        } else if (args.length >= 2 && args[0].equalsIgnoreCase("models")) {
+            // /lban models <sub> [id] —— 必须在 args.length==2 分支之前（该分支 switch 无 models case）
+            return new ModelsCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length == 2) {
             String sub = args[0].toLowerCase();
             String prefix = args[1].toLowerCase();
@@ -596,6 +605,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     }
                     break;
             }
+        } else if (args.length >= 2 && args[0].equalsIgnoreCase("models")) {
+            // /lban models <sub> [id] —— 去掉 "models" 前缀后委派给 ModelsCommand
+            return new ModelsCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("report")) {
             if (args.length == 2) {
                 String prefix = args[1].toLowerCase();

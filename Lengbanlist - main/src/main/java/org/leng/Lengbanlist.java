@@ -43,6 +43,7 @@ public class Lengbanlist extends JavaPlugin {
     private EscalationManager escalationManager;
     private GuiSessionManager guiSessionManager;
     private GuiCommand guiCommand;
+    private ModelCloudManager modelCloudManager;
     private AltsCommand altsCommand;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
@@ -118,6 +119,7 @@ public void onLoad() {
     escalationManager = new EscalationManager(this);
     guiSessionManager = new GuiSessionManager();
     guiCommand = new GuiCommand(this);
+    modelCloudManager = new ModelCloudManager(this);
     auditManager = new AuditManager(this);
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
@@ -125,15 +127,18 @@ public void onLoad() {
     webServer = new WebServer(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
 
-    // 生成自定义模型目录和示例文件
+    // 生成自定义模型目录 + 预置内置 YAML（Default/English/示例）。
+    // 已存在的不覆盖（尊重用户修改/云端下载的同名文件）。
     File modelsDir = new File(getDataFolder(), "models");
     if (!modelsDir.exists()) {
         modelsDir.mkdirs();
     }
-    File exampleModelFile = new File(modelsDir, "example-custom-model.yml");
-    if (!exampleModelFile.exists()) {
-        saveResource("models/example-custom-model.yml", false);
-        getLogger().info("已生成自定义模型示例文件: models/example-custom-model.yml");
+    for (String builtin : new String[]{"default", "english", "example-custom-model"}) {
+        File target = new File(modelsDir, builtin + ".yml");
+        if (!target.exists()) {
+            saveResource("models/" + builtin + ".yml", false);
+            getLogger().info("已预置内置模型: models/" + builtin + ".yml");
+        }
     }
 
     modelManager = ModelManager.getInstance();
@@ -489,6 +494,10 @@ void shutdownStorage() {
 
     public GuiCommand getGuiCommand() {
         return guiCommand;
+    }
+
+    public ModelCloudManager getModelCloudManager() {
+        return modelCloudManager;
     }
 
     public AltsCommand getAltsCommand() {
