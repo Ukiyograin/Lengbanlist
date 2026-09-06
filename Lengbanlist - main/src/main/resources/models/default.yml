@@ -35,6 +35,7 @@ help:
   - "§2✦ §b/lban sync §7- §3查看跨服同步状态"
   - "§2✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚管理员操作"
   - "§6§l◆ 模型管理"
+  - "§2✦ §b/lban model <必填>模型名称 §7- §3切换模型"
   - "§2✦ §b/lban models refresh §7- §3从云端拉取角色风格模型"
   - "§2✦ §b/lban models install <必填>ID §7- §3下载安装云端风格"
   - "§2✦ §b/lban models pin <必填>ID §7- §3锁定本地风格(云端不覆盖)"

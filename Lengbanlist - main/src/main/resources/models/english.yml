@@ -39,6 +39,7 @@ help:
   - "§2✦ §b/lban sync §7- §3View cross-server sync status"
   - "§2✦ §b/lban rollback <operator> <start> <end> <optional>type §7- §3Roll back admin operations"
   - "§6§l◆ Model Management"
+  - "§b/lban model <name> §7- §3Switch model style"
   - "§b/lban models refresh §7- §3Fetch styles from cloud"
   - "§b/lban models install <ID> §7- §3Install a cloud style"
   - "§b/lban models pin <ID> §7- §3Pin local style (cloud won't overwrite)"

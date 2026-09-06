@@ -193,6 +193,17 @@ public class ModelCloudManager {
     }
 
     /**
+     * 仅读缓存索引（内存→磁盘）,绝不触网 —— 供主线程 Tab 补全等场景使用。
+     */
+    public Optional<ModelIndex> cachedIndexOnly() {
+        ModelIndex mem = cachedIndex.get();
+        if (mem != null) {
+            return Optional.of(mem);
+        }
+        return readIndexCache();
+    }
+
+    /**
      * 取索引 —— 优先内存缓存,其次磁盘缓存,最后网络。
      * 缓存过期时间由 {@link #INDEX_CACHE_TTL_MS} 控制。
      */
