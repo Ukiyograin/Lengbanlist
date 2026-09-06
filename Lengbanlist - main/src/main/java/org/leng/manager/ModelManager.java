@@ -82,7 +82,6 @@ public class ModelManager {
 
                 CustomModel model = new CustomModel(modelName, yaml);
                 models.put(lowerName, model);
-                Lengbanlist.getInstance().getLogger().info("已加载自定义模型: " + modelName + "（来自 " + file.getName() + "）");
             } catch (Exception e) {
                 if (e instanceof org.bukkit.configuration.InvalidConfigurationException) {
                     Lengbanlist.getInstance().getLogger().warning("跳过模型文件 " + file.getName() + "：YAML 格式错误，请检查语法");
