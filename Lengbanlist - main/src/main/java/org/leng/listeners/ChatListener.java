@@ -7,7 +7,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.leng.Lengbanlist;
-import org.leng.commands.LengbanlistCommand;
+import org.leng.commands.GuiCommand;
 import org.leng.object.MuteEntry;
 import org.leng.utils.SchedulerUtils;
 import org.leng.utils.TimeUtils;
@@ -35,13 +35,9 @@ public class ChatListener implements Listener {
             event.setCancelled(true);
             String wizardMessage = event.getMessage();
             SchedulerUtils.runTask(plugin, player, () -> {
-                org.bukkit.command.PluginCommand cmd = plugin.getCommand("lban");
-                if (cmd == null) {
-                    return;
-                }
-                org.bukkit.command.CommandExecutor executor = cmd.getExecutor();
-                if (executor instanceof LengbanlistCommand) {
-                    ((LengbanlistCommand) executor).handleChatWizard(player, wizardMessage);
+                GuiCommand gui = plugin.getGuiCommand();
+                if (gui != null) {
+                    gui.handleChatWizard(player, wizardMessage);
                 }
             });
             return;

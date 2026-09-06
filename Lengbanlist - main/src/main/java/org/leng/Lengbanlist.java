@@ -20,12 +20,11 @@ import org.leng.utils.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.io.BufferedReader;
 import java.lang.reflect.Field;
 
 import org.leng.web.WebServer;
+import org.leng.commands.GuiCommand;
 
 public class Lengbanlist extends JavaPlugin {
     private static Lengbanlist instance;
@@ -43,6 +42,7 @@ public class Lengbanlist extends JavaPlugin {
     private ImmunityManager immunityManager;
     private EscalationManager escalationManager;
     private GuiSessionManager guiSessionManager;
+    private GuiCommand guiCommand;
     private AltsCommand altsCommand;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
@@ -106,8 +106,7 @@ public void onLoad() {
         new StorageMigrationManager(this, databaseManager).migrateYamlIfNeeded();
         muteManager = new MuteManager(this);
     } catch (Exception e) {
-        getLogger().severe("数据库初始化失败，插件将停止启用: " + e.getMessage());
-        e.printStackTrace();
+        getLogger().log(java.util.logging.Level.SEVERE, "数据库初始化失败，插件将停止启用", e);
         initializationFailed = true;
         return;
     }
@@ -118,6 +117,7 @@ public void onLoad() {
     immunityManager = new ImmunityManager(this);
     escalationManager = new EscalationManager(this);
     guiSessionManager = new GuiSessionManager();
+    guiCommand = new GuiCommand(this);
     auditManager = new AuditManager(this);
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
@@ -203,6 +203,7 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
+    getServer().getPluginManager().registerEvents(guiCommand, Lengbanlist.this);
     
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
     PluginCommand lban = getCommand("lban");
@@ -486,6 +487,10 @@ void shutdownStorage() {
         return guiSessionManager;
     }
 
+    public GuiCommand getGuiCommand() {
+        return guiCommand;
+    }
+
     public AltsCommand getAltsCommand() {
         return altsCommand;
     }
@@ -530,7 +535,7 @@ void shutdownStorage() {
         try {
             broadcastFC.save(new File(getDataFolder(), "broadcast.yml"));
         } catch (IOException e) {
-            e.printStackTrace();
+            getLogger().log(java.util.logging.Level.WARNING, "保存 broadcast.yml 失败", e);
         }
     }
 
