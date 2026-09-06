@@ -120,7 +120,7 @@ messages:
   mute-command-blocked: "§c你正在被禁言，无法使用此命令"
 
   # --- 警告相关 ---
-  add-warn: "§a玩家 {player} 已被警告，原因: {reason}（五次警告自动永久封禁）"
+  add-warn: "§a玩家 §e{player} §a因 §6{reason} §a已被记一次警告，请不要再被警告了哦~"
   remove-warn: "§a玩家 {player} 的警告已移除"
   warn-offline: "§a离线玩家 {player} 已被警告，原因: {reason}，上线后他将收到通知"
   pending-warnings-notice: "§e你有 {count} 条待处理警告，请遵守规则！"

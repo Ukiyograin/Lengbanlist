@@ -83,7 +83,7 @@ messages:
   remove-mute: "§b默认模型：§a玩家 {player} 的禁言已解除"
   add-ban-ip: "§b默认模型：§aIP {ip} 已被封禁 {days}，原因是：{reason}"
   remove-ban-ip: "§b默认模型：§aIP {ip} 的封禁已解除"
-  add-warn: "§b默认模型：§a玩家 {player} 已被警告，原因是：{reason}。警告累计 5 条将被自动永久封禁。"
+  add-warn: "§b默认模型：§a玩家 §e{player} §a因 §6{reason} §a已被记一次警告，请不要再被警告了哦~"
   remove-warn: "§b默认模型：§a玩家 {player} 的警告记录已移除。"
   mute-command-blocked: "§b默认模型：§c禁言期间不能使用该命令哦~ 等禁言结束后再试试吧！"
   warn-offline: "§b默认模型：§a离线玩家 {player} 已被警告，原因是：{reason}。上线后他会收到通知哦~"

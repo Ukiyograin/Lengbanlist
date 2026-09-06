@@ -87,7 +87,7 @@ messages:
   remove-mute: "§bEnglish Model: §aPlayer {player} has been unmuted"
   add-ban-ip: "§bEnglish Model: §aIP {ip} has been banned for {days}, reason: {reason}"
   remove-ban-ip: "§bEnglish Model: §aIP {ip} has been unbanned"
-  add-warn: "§bEnglish Model: §aPlayer {player} has been warned, reason: {reason}. 5 total warnings trigger a permanent ban."
+  add-warn: "§bEnglish Model: §aPlayer §e{player} §ahas been warned for §6{reason}§a. Please be careful and try not to be warned again~"
   remove-warn: "§bEnglish Model: §aWarning records for {player} have been removed."
   mute-command-blocked: "§bEnglish Model: §cYou cannot use this command while muted. Please wait until your mute expires~"
   warn-offline: "§bEnglish Model: §aOffline player {player} has been warned, reason: {reason}. They will be notified when they come online~"
