@@ -186,6 +186,9 @@ jobs:
     
     - name: Build release body
       id: build_body
+      env:
+        # 通过 env 传递 github-script 输出,避免 ${{ }} 在 run 块行首导致 YAML 解析错误
+        GITHUB_DATA: ${{ steps.github_data.outputs.result }}
       run: |
         cat > release_body.md << 'EOF'
         ## 📝 更新日志
@@ -216,10 +219,8 @@ jobs:
           echo "" >> release_body.md
         fi
 
-        # 用 heredoc 避免 shell 单引号吞掉 ${{ }} 展开（之前 bug：github_data.json 一直是字面量字符串,导致"项目动态"永远为 0）
-        cat > github_data.json <<EOF
-${{ steps.github_data.outputs.result }}
-EOF
+        # 写入 github-script 结果（env 传递,双引号展开）
+        echo "$GITHUB_DATA" > github_data.json
         
         if [ -f github_data.json ] && [ -s github_data.json ] && command -v jq &> /dev/null; then
           ISSUES_COUNT=$(jq '.resolvedIssues | length' github_data.json 2>/dev/null || echo "0")

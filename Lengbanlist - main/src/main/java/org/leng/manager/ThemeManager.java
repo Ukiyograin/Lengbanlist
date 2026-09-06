@@ -21,16 +21,21 @@ import java.util.logging.Logger;
 /**
  * Web 管理面板主题配置 + 背景上传管理。
  *
- * 主题存储于 plugins/Lengbanlist/theme.yml:
- *   background-type: default | url | upload
- *   background-url: <图床链接>
- *   background-file: <相对 web-assets/ 的文件名>
- *   hidden-buttons: [ban, mute, audit, ...]
+ * 主题存储于 config.yml 的 web.theme 节（简化配置,避免零散小文件）:
+ *   web.theme.background-type: default | url | upload
+ *   web.theme.background-url: <图床链接>
+ *   web.theme.background-file: <相对 web-assets/ 的文件名>
+ *   web.theme.hidden-buttons: [ban, mute, audit, ...]
+ *
+ * 旧版独立 theme.yml 首次加载时自动迁移并入 config.yml 后删除。
  *
  * 上传的文件保存到 plugins/Lengbanlist/web-assets/background/，
  * 文件名随机化防覆盖，原始扩展名保留。
  */
 public class ThemeManager {
+
+    /** config.yml 中主题配置的路径前缀 */
+    private static final String CFG_PREFIX = "web.theme";
 
     /** 所有可被隐藏的按钮 ID（前端固定集合，服务端只保存子集） */
     public static final Set<String> ALL_BUTTONS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
@@ -42,7 +47,6 @@ public class ThemeManager {
     public static final List<String> ALLOWED_EXTENSIONS = Arrays.asList("png", "jpg", "jpeg", "webp", "gif");
 
     private final Lengbanlist plugin;
-    private final File themeFile;
     private final File webAssetsDir;
     private final Logger logger;
 
@@ -54,12 +58,36 @@ public class ThemeManager {
     public ThemeManager(Lengbanlist plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
-        this.themeFile = new File(plugin.getDataFolder(), "theme.yml");
         this.webAssetsDir = new File(plugin.getDataFolder(), "web-assets/background");
         if (!webAssetsDir.exists()) {
             webAssetsDir.mkdirs();
         }
+        migrateLegacyThemeYml();
         load();
+    }
+
+    /** 旧版独立 theme.yml → 合并进 config.yml 的 web.theme 节,成功后删除 theme.yml。 */
+    private void migrateLegacyThemeYml() {
+        File legacy = new File(plugin.getDataFolder(), "theme.yml");
+        if (!legacy.exists()) {
+            return;
+        }
+        try {
+            if (!plugin.getConfig().contains(CFG_PREFIX + ".background-type")) {
+                YamlConfiguration yaml = YamlConfiguration.loadConfiguration(legacy);
+                plugin.getConfig().set(CFG_PREFIX + ".background-type", yaml.getString("background-type", "default"));
+                plugin.getConfig().set(CFG_PREFIX + ".background-url", yaml.getString("background-url", ""));
+                plugin.getConfig().set(CFG_PREFIX + ".background-file", yaml.getString("background-file", ""));
+                plugin.getConfig().set(CFG_PREFIX + ".hidden-buttons", yaml.getStringList("hidden-buttons"));
+                plugin.saveConfig();
+            }
+            if (!legacy.delete()) {
+                legacy.deleteOnExit();
+            }
+            logger.info("theme.yml 已迁移到 config.yml 的 " + CFG_PREFIX + " 节（旧文件已移除）");
+        } catch (Exception e) {
+            logger.warning("theme.yml 迁移失败（将仍读取旧文件）: " + e.getMessage());
+        }
     }
 
     /** 提供给 WebServer 路径校验（防止穿越） */
@@ -68,28 +96,18 @@ public class ThemeManager {
     }
 
     public void load() {
-        if (!themeFile.exists()) {
-            save();
-            return;
-        }
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(themeFile);
-        backgroundType = yaml.getString("background-type", "default");
-        backgroundUrl = yaml.getString("background-url", "");
-        backgroundFile = yaml.getString("background-file", "");
-        hiddenButtons = new HashSet<>(yaml.getStringList("hidden-buttons"));
+        backgroundType = plugin.getConfig().getString(CFG_PREFIX + ".background-type", "default");
+        backgroundUrl = plugin.getConfig().getString(CFG_PREFIX + ".background-url", "");
+        backgroundFile = plugin.getConfig().getString(CFG_PREFIX + ".background-file", "");
+        hiddenButtons = new HashSet<>(plugin.getConfig().getStringList(CFG_PREFIX + ".hidden-buttons"));
     }
 
     public void save() {
-        try {
-            YamlConfiguration yaml = new YamlConfiguration();
-            yaml.set("background-type", backgroundType);
-            yaml.set("background-url", backgroundUrl);
-            yaml.set("background-file", backgroundFile);
-            yaml.set("hidden-buttons", new ArrayList<>(hiddenButtons));
-            yaml.save(themeFile);
-        } catch (IOException e) {
-            logger.warning("保存 theme.yml 失败: " + e.getMessage());
-        }
+        plugin.getConfig().set(CFG_PREFIX + ".background-type", backgroundType);
+        plugin.getConfig().set(CFG_PREFIX + ".background-url", backgroundUrl);
+        plugin.getConfig().set(CFG_PREFIX + ".background-file", backgroundFile);
+        plugin.getConfig().set(CFG_PREFIX + ".hidden-buttons", new ArrayList<>(hiddenButtons));
+        plugin.saveConfig();
     }
 
     // ============ 背景配置 ============

@@ -44,6 +44,8 @@ help:
   - "§b/lban models pin <ID> §7- §3Pin local style (cloud won't overwrite)"
   - "§b/lban models unpin <ID> §7- §3Unpin style"
   - "§b/lban models list §7- §3List local & cloud styles"
+  - "§b/lban models install all §7- §3Download all available styles"
+  - "§b/lban models stats §7- §3Local install stats (featured voting ref)"
   - "§6§l◆ Miscellaneous"
   - "§2✦ §b/lban list §7- §3View ban list"
   - "§2✦ §b/lban list-mute §7- §3View mute list"

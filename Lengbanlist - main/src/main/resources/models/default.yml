@@ -40,6 +40,8 @@ help:
   - "§2✦ §b/lban models pin <必填>ID §7- §3锁定本地风格(云端不覆盖)"
   - "§2✦ §b/lban models unpin <必填>ID §7- §3解除锁定"
   - "§2✦ §b/lban models list §7- §3查看本地与云端模型"
+  - "§2✦ §b/lban models install all §7- §3一键下载全部已上架模型"
+  - "§2✦ §b/lban models stats §7- §3查看本服安装统计(月度精选参考)"
   - "§6§l◆ 杂项"
   - "§2✦ §b/lban list §7- §3查看封禁名单"
   - "§2✦ §b/lban list-mute §7- §3查看禁言列表"
