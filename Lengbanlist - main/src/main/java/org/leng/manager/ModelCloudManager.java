@@ -216,6 +216,97 @@ public class ModelCloudManager {
         return plugin.getDataFolder().toPath().resolve("models/.cache/index.json");
     }
 
+    // ====================== 安装统计（用于月度精选评定参考） ======================
+
+    private Path statsFile() {
+        return plugin.getDataFolder().toPath().resolve("models/.cache/stats.json");
+    }
+
+    /** 记录一次模型安装/更新（本地累计,跨服汇总由管理员导出后反馈作者）。 */
+    public void recordInstall(String id) {
+        try {
+            Path p = statsFile();
+            Files.createDirectories(p.getParent());
+            com.google.gson.JsonObject stats;
+            if (Files.exists(p)) {
+                stats = JsonParser.parseString(Files.readString(p, StandardCharsets.UTF_8)).getAsJsonObject();
+            } else {
+                stats = new com.google.gson.JsonObject();
+            }
+            int count = stats.has(id) ? stats.get(id).getAsInt() : 0;
+            stats.addProperty(id, count + 1);
+            Files.writeString(p, stats.toString(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.FINE, "[ModelCloud] 记录安装统计失败", e);
+        }
+        reportInstallAsync(id);
+    }
+
+    // ---- 自动评选上报（可选参与,config models-cloud.stats.*） ----
+
+    /** 服务器唯一标识(首次生成,用于跨服去重统计)。 */
+    private String serverId() {
+        Path p = plugin.getDataFolder().toPath().resolve("models/.cache/server-id");
+        try {
+            if (Files.exists(p)) {
+                return Files.readString(p, StandardCharsets.UTF_8).trim();
+            }
+            String id = java.util.UUID.randomUUID().toString();
+            Files.createDirectories(p.getParent());
+            Files.writeString(p, id, StandardCharsets.UTF_8);
+            return id;
+        } catch (IOException e) {
+            return "unknown";
+        }
+    }
+
+    private boolean statsReportingEnabled() {
+        if (!plugin.getConfig().getBoolean("models-cloud.stats.enabled", true)) {
+            return false;
+        }
+        String url = plugin.getConfig().getString("models-cloud.stats.url", "");
+        return url != null && !url.trim().isEmpty();
+    }
+
+    /** 异步上报一次安装事件（HTTP 200 即成功;失败静默,下次 install 再试）。 */
+    private void reportInstallAsync(String modelId) {
+        if (!statsReportingEnabled()) {
+            return;
+        }
+        CompletableFuture.runAsync(() -> {
+            String url = plugin.getConfig().getString("models-cloud.stats.url", "");
+            try (HttpHelper http = new HttpHelper(5000, 5000)) {
+                JsonObject payload = new JsonObject();
+                payload.addProperty("server", serverId());
+                payload.addProperty("model", modelId);
+                payload.addProperty("version", plugin.getPluginVersion());
+                http.postJson(url, payload.toString(), "Lengbanlist-Stats/1.0");
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.FINE, "[ModelCloud] 安装统计上报失败(不影响使用)", e);
+            }
+        });
+    }
+
+    /**
+     * 读取安装统计,按次数降序返回 (id, count) 列表。
+     */
+    public List<String[]> downloadStats() {
+        List<String[]> result = new ArrayList<>();
+        try {
+            Path p = statsFile();
+            if (!Files.exists(p)) {
+                return result;
+            }
+            com.google.gson.JsonObject stats = JsonParser.parseString(Files.readString(p, StandardCharsets.UTF_8)).getAsJsonObject();
+            stats.entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue().getAsInt(), a.getValue().getAsInt()))
+                    .forEach(e -> result.add(new String[]{e.getKey(), String.valueOf(e.getValue().getAsInt())}));
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[ModelCloud] 读取安装统计失败", e);
+        }
+        return result;
+    }
+
     private void writeIndexCache(String body) {
         try {
             Path p = cacheFile();
@@ -277,37 +368,81 @@ public class ModelCloudManager {
         return localModelsDir().resolve(id + ".yml");
     }
 
-    private Path pinnedFile(String id) {
-        return localModelsDir().resolve(id + ".pinned");
+    /**
+     * 元数据（pinned/version）内嵌在模型 yml 尾部,避免零散小文件。
+     * 用文本级读写,不做 Bukkit YAML 序列化（会丢失注释/格式）。
+     */
+    private static final String META_PREFIX_PINNED = "pinned: ";
+    private static final String META_PREFIX_VERSION = "version: ";
+    private static final String META_COMMENT = "# 以下元数据由 Lengbanlist 自动维护（pinned=锁定,version=云端版本）";
+
+    private String readMetaValue(String id, String prefix) {
+        Path f = modelFile(id);
+        if (!Files.exists(f)) {
+            return "";
+        }
+        try {
+            for (String line : Files.readAllLines(f, StandardCharsets.UTF_8)) {
+                if (line.startsWith(prefix)) {
+                    return line.substring(prefix.length()).trim();
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return "";
+    }
+
+    /** 文本级设置元数据行（有则替换,无则追加到文件尾）。返回是否成功。 */
+    private boolean setMetaValue(String id, String prefix, String value) {
+        Path f = modelFile(id);
+        if (!Files.exists(f)) {
+            return false;
+        }
+        try {
+            List<String> lines = Files.readAllLines(f, StandardCharsets.UTF_8);
+            int idx = -1;
+            for (int i = 0; i < lines.size(); i++) {
+                if (lines.get(i).startsWith(prefix)) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx >= 0) {
+                lines.set(idx, prefix + value);
+            } else {
+                boolean hasMeta = lines.stream().anyMatch(l ->
+                        l.startsWith(META_PREFIX_PINNED) || l.startsWith(META_PREFIX_VERSION));
+                if (!hasMeta) {
+                    lines.add("");
+                    lines.add(META_COMMENT);
+                }
+                lines.add(prefix + value);
+            }
+            Files.write(f, lines, StandardCharsets.UTF_8);
+            return true;
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.WARNING, "[ModelCloud] 写入元数据失败: " + id, e);
+            return false;
+        }
     }
 
     /** 该模型是否已锁定（云端更新不覆盖本地）。 */
     public boolean isPinned(String id) {
-        return Files.exists(pinnedFile(id));
+        return "true".equals(readMetaValue(id, META_PREFIX_PINNED));
     }
 
-    /** 锁定模型:云端更新不再覆盖。返回是否成功。 */
+    /** 锁定模型:云端更新不再覆盖。需先安装。 */
     public boolean pin(String id) {
-        try {
-            Path p = pinnedFile(id);
-            Files.createDirectories(p.getParent());
-            Files.writeString(p, "", StandardCharsets.UTF_8);
-            return true;
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "[ModelCloud] 写入 pin 标记失败: " + id, e);
-            return false;
-        }
+        return setMetaValue(id, META_PREFIX_PINNED, "true");
     }
 
-    /** 解除锁定。文件不存在（本来就没锁）也算成功。 */
+    /** 解除锁定（幂等:未安装/未锁定也算成功）。 */
     public boolean unpin(String id) {
-        try {
-            Files.deleteIfExists(pinnedFile(id));
+        Path f = modelFile(id);
+        if (!Files.exists(f)) {
             return true;
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "[ModelCloud] 删除 pin 标记失败: " + id, e);
-            return false;
         }
+        return setMetaValue(id, META_PREFIX_PINNED, "false");
     }
 
     /** 本地是否已安装该模型文件。 */
@@ -390,17 +525,9 @@ public class ModelCloudManager {
         return info.version() == null || info.version().isEmpty() || "0.0.0".equals(info.version());
     }
 
-    /** 本地版本是否与云端一致（依据 <id>.version 记录）。 */
+    /** 本地版本是否与云端一致（读取模型 yml 内嵌 version 元数据）。 */
     private boolean isCurrent(String id, String version) {
-        Path meta = localModelsDir().resolve(id + ".version");
-        if (!Files.exists(meta) || version == null) {
-            return false;
-        }
-        try {
-            return Files.readString(meta, StandardCharsets.UTF_8).trim().equals(version);
-        } catch (IOException e) {
-            return false;
-        }
+        return version != null && !version.isEmpty() && version.equals(readMetaValue(id, META_PREFIX_VERSION));
     }
 
     private InstallResult downloadModel(ModelInfo info) {
@@ -423,9 +550,10 @@ public class ModelCloudManager {
                 Files.createDirectories(target.getParent());
                 Files.writeString(target, body, StandardCharsets.UTF_8);
                 if (info.version() != null && !info.version().isEmpty()) {
-                    Files.writeString(localModelsDir().resolve(info.id() + ".version"), info.version(), StandardCharsets.UTF_8);
+                    setMetaValue(info.id(), META_PREFIX_VERSION, info.version());
                 }
                 plugin.getLogger().info("[ModelCloud] 模型已安装: " + info.id() + " (" + info.name() + " v" + info.version() + ") 来源 " + url);
+                recordInstall(info.id());
                 return InstallResult.INSTALLED;
             } catch (IOException | InterruptedException e) {
                 plugin.getLogger().log(Level.FINE, "[ModelCloud] 下载候选失败: " + url + " — " + e.getMessage());

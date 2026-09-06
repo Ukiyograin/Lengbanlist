@@ -299,30 +299,56 @@ class ModelCloudManagerTest {
 
     // ====================== pin / unpin ======================
 
+    private void ensureModelFile(String id) throws Exception {
+        Files.createDirectories(tmp.resolve("models"));
+        Files.writeString(tmp.resolve("models/" + id + ".yml"), "name: " + id + "\nmessages: {}\n");
+    }
+
     @Test
-    void pin_writesMarkerFile_andIsPinnedTrue() {
+    void pin_writesMetaInModelFile_andIsPinnedTrue() throws Exception {
+        ensureModelFile("hutao");
         assertFalse(manager.isPinned("hutao"));
         assertTrue(manager.pin("hutao"));
         assertTrue(manager.isPinned("hutao"));
+        // 元数据内嵌在模型文件尾部（不新增独立文件）
+        String content = Files.readString(tmp.resolve("models/hutao.yml"));
+        assertTrue(content.contains("pinned: true"));
     }
 
     @Test
-    void unpin_removesMarkerFile() {
+    void unpin_flipsMetaInModelFile() throws Exception {
+        ensureModelFile("hutao");
         manager.pin("hutao");
         assertTrue(manager.unpin("hutao"));
         assertFalse(manager.isPinned("hutao"));
+        String content = Files.readString(tmp.resolve("models/hutao.yml"));
+        assertTrue(content.contains("pinned: false"));
     }
 
     @Test
-    void unpin_whenNotPinned_returnsTrue() {
-        // deleteIfExists 对不存在的文件返回 true
+    void unpin_whenNotInstalled_returnsTrue() {
+        // 未安装/未锁定幂等成功
         assertTrue(manager.unpin("hutao"));
+        assertFalse(manager.pin("hutao"));
+    }
+
+    @Test
+    void pin_twiceIdempotent() throws Exception {
+        ensureModelFile("hutao");
+        assertTrue(manager.pin("hutao"));
+        assertTrue(manager.pin("hutao"));
+        assertTrue(manager.isPinned("hutao"));
+        // 不应产生重复元数据行
+        long cnt = Files.readAllLines(tmp.resolve("models/hutao.yml"))
+                .stream().filter(l -> l.startsWith("pinned: ")).count();
+        assertEquals(1, cnt);
     }
 
     // ====================== install ======================
 
     @Test
-    void installModel_pinned_skipsDownload() {
+    void installModel_pinned_skipsDownload() throws Exception {
+        ensureModelFile("hutao");
         manager.pin("hutao");
         // pinned 的模型不访问网络,无需 stub mirrors
         assertEquals(ModelCloudManager.InstallResult.PINNED_SKIPPED, manager.installModel("hutao"));
@@ -353,6 +379,10 @@ class ModelCloudManagerTest {
         assertTrue(manager.isInstalled("hutao"));
         Path installed = tmp.resolve("models/hutao.yml");
         assertTrue(Files.exists(installed));
+        // version 元数据内嵌在文件内
+        String content = Files.readString(installed);
+        assertTrue(content.contains("version: 1.2.0"));
+        assertFalse(content.contains("pinned: true"));
     }
 
     @Test
@@ -361,9 +391,10 @@ class ModelCloudManagerTest {
         Files.createDirectories(cacheFile.getParent());
         Files.writeString(cacheFile, mockIndexWithModelUrl(currentMonth, url("model")));
 
-        // 已有 hutao.yml + hutao.version 相同
-        Files.writeString(tmp.resolve("models/hutao.yml"), "name: hutao\n");
-        Files.writeString(tmp.resolve("models/hutao.version"), "1.2.0");
+        // 已有 hutao.yml,version 元数据与云端一致
+        Files.createDirectories(tmp.resolve("models"));
+        Files.writeString(tmp.resolve("models/hutao.yml"),
+                "name: hutao\nmessages: {}\nversion: 1.2.0\n");
 
         assertEquals(ModelCloudManager.InstallResult.ALREADY_INSTALLED, manager.installModel("hutao"));
     }

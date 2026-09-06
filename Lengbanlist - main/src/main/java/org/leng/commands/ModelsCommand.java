@@ -60,6 +60,9 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
             case "featured":
                 cmdFeatured(sender);
                 break;
+            case "stats":
+                cmdStats(sender);
+                break;
             default:
                 sendHelp(sender);
                 break;
@@ -74,13 +77,12 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         cloud.fetchIndexAsync().thenAccept(result -> {
             if (result.isPresent()) {
                 ModelCloudManager.ModelIndex idx = result.get();
+                long ready = idx.models().stream().filter(m -> !"0.0.0".equals(m.version())).count();
                 Utils.sendMessage(sender, plugin.prefix() + "§a索引已更新：共 " + idx.models().size() + " 个云端模型" + (idx.updated() == null ? "" : "（更新于 " + idx.updated() + "）"));
-                int installed = cloud.syncAll();
-                if (installed > 0) {
-                    org.leng.manager.ModelManager.getInstance().reloadModel();
-                    Utils.sendMessage(sender, plugin.prefix() + "§a已自动安装 " + installed + " 个新模型，输入 §f/lban model <名称> §a切换使用");
+                if (ready > 0) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§7已上架 " + ready + " 个，输入 §f/lban models list §7查看，§f/lban models install <ID> §7按需下载");
                 } else {
-                    Utils.sendMessage(sender, plugin.prefix() + "§7没有需要安装的新模型（本地已是最新）");
+                    Utils.sendMessage(sender, plugin.prefix() + "§7暂无可下载的模型（均在迁移中）");
                 }
             } else {
                 Utils.sendMessage(sender, plugin.prefix() + "§c云端索引拉取失败，请检查网络或稍后重试。");
@@ -112,10 +114,14 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
 
     private void cmdInstall(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /lban models install <模型ID>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /lban models install <模型ID|all>");
             return;
         }
         String id = args[1].toLowerCase();
+        if (id.equals("all")) {
+            cmdInstallAll(sender);
+            return;
+        }
         // 预检:占位条目（未上架）直接提示
         Optional<ModelCloudManager.ModelInfo> info = cloud.findInIndex(id);
         if (info.isPresent() && "0.0.0".equals(info.get().version())) {
@@ -144,6 +150,17 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void cmdInstallAll(CommandSender sender) {
+        Utils.sendMessage(sender, plugin.prefix() + "§e正在按需下载全部已上架模型（已 pin/已最新会跳过）喵…");
+        int installed = cloud.syncAll();
+        if (installed > 0) {
+            org.leng.manager.ModelManager.getInstance().reloadModel();
+            Utils.sendMessage(sender, plugin.prefix() + "§a已安装 " + installed + " 个模型，输入 §f/lban model <名称> §a切换使用");
+        } else {
+            Utils.sendMessage(sender, plugin.prefix() + "§7没有需要下载的模型（均已是最新或被锁定）");
+        }
+    }
+
     private void cmdPin(CommandSender sender, String[] args, boolean pin) {
         if (args.length < 2) {
             Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /lban models " + (pin ? "pin" : "unpin") + " <模型ID>");
@@ -151,8 +168,21 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         }
         String id = args[1].toLowerCase();
         if (pin) {
+            // pin 语义 = 下载到本地(models/ 目录) + 锁定,云端更新不再覆盖
+            if (!cloud.isInstalled(id)) {
+                ModelCloudManager.InstallResult installResult = cloud.installModel(id);
+                if (installResult == ModelCloudManager.InstallResult.INSTALLED) {
+                    org.leng.manager.ModelManager.getInstance().reloadModel();
+                } else if (installResult == ModelCloudManager.InstallResult.NOT_FOUND) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c云端没有找到模型 " + id + "（或尚未上架）");
+                    return;
+                } else if (installResult == ModelCloudManager.InstallResult.FAILED) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c模型 " + id + " 下载失败，无法锁定");
+                    return;
+                }
+            }
             if (cloud.pin(id)) {
-                Utils.sendMessage(sender, plugin.prefix() + "§a模型 " + id + " 已锁定，云端更新不会覆盖本地");
+                Utils.sendMessage(sender, plugin.prefix() + "§a模型 " + id + " 已下载到本地并锁定，云端更新不会覆盖");
             } else {
                 Utils.sendMessage(sender, plugin.prefix() + "§c锁定失败，请查看控制台日志");
             }
@@ -183,6 +213,22 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    /** 展示本地安装统计排行（供作者参考月度精选的投票热度）。 */
+    private void cmdStats(CommandSender sender) {
+        List<String[]> stats = cloud.downloadStats();
+        if (stats.isEmpty()) {
+            Utils.sendMessage(sender, plugin.prefix() + "§7本服还没有安装过云端模型（使用 /lban models install 或 pin 后会产生统计）");
+            return;
+        }
+        Utils.sendMessage(sender, "§7--§b 本服模型安装统计 §7--");
+        int rank = 1;
+        for (String[] s : stats) {
+            Utils.sendMessage(sender, "§f#" + rank + " §e" + s[0] + " §7安装 " + s[1] + " 次");
+            rank++;
+        }
+        Utils.sendMessage(sender, "§7（统计存于本服 models/.cache/stats.json,可将排行反馈给作者评选每月精选）");
+    }
+
     private boolean isFeatured(ModelCloudManager.ModelInfo info) {
         Optional<ModelCloudManager.FeaturedModel> featured = cloud.getIndex().map(ModelCloudManager.ModelIndex::featured);
         return featured.isPresent()
@@ -194,10 +240,11 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         Utils.sendMessage(sender, "§7--§b Lengbanlist 模型管理 §7--");
         Utils.sendMessage(sender, "§6/lban models refresh §7- §3拉取云端模型索引");
         Utils.sendMessage(sender, "§6/lban models list §7- §3列出本地 + 云端模型");
-        Utils.sendMessage(sender, "§6/lban models install <ID> §7- §3下载安装指定模型");
-        Utils.sendMessage(sender, "§6/lban models pin <ID> §7- §3锁定本地模型（不随云端更新）");
+        Utils.sendMessage(sender, "§6/lban models install <ID|all> §7- §3下载安装指定/全部模型");
+        Utils.sendMessage(sender, "§6/lban models pin <ID> §7- §3下载到本地并锁定（不随云端更新）");
         Utils.sendMessage(sender, "§6/lban models unpin <ID> §7- §3解除锁定");
         Utils.sendMessage(sender, "§6/lban models featured §7- §3查看本月精选");
+        Utils.sendMessage(sender, "§6/lban models stats §7- §3查看本服模型安装统计");
     }
 
     @Override
@@ -205,7 +252,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         if (args.length <= 1) {
             String prefix = args[0].toLowerCase();
-            for (String sub : new String[]{"refresh", "list", "install", "pin", "unpin", "featured"}) {
+            for (String sub : new String[]{"refresh", "list", "install", "pin", "unpin", "featured", "stats"}) {
                 if (sub.startsWith(prefix)) completions.add(sub);
             }
         } else if (args.length == 2) {

@@ -140,6 +140,11 @@ web:
   admin-password: "lban123"     # 管理员密码
   operator-weight: 2147483647   # 操作者权重（免疫比较，默认最高）
   allowed-origins: []
+  theme:                        # 面板主题（面板"设置"页操作,通常无需手改）
+    background-type: default    # 背景类型: default(必应壁纸) / url / upload
+    background-url: ""          # background-type=url 时的图片地址
+    background-file: ""         # background-type=upload 时的已上传文件名
+    hidden-buttons: []          # 从面板隐藏的功能页签: ban/mute/report/audit/player/history/ip/alts/broadcast/unban/unmute/warn
 
 # ---------- 封禁时长自动升级（escalation） ----------
 # 惯犯封禁时封禁时长逐级递增
@@ -168,3 +173,14 @@ offline-warn:
 # ---------- 小号检测（alts） ----------
 alts:
   max-scan: 5        # 单次最多展示关联账号数
+
+# ---------- 云端角色模型（models-cloud） ----------
+# 角色风格模型从 Lengbanlist-Models 仓库拉取(默认镜像链可换源)
+models-cloud:
+  enabled: true
+  repo: "Serendisand/Lengbanlist-Models"
+  branch: "main"
+  mirrors: []          # 自定义镜像列表(完整 index.json URL);留空用默认链
+  stats:               # 安装统计上报(用于月度精选自动评选)
+    enabled: true      # 关闭后仅本地统计,不参与跨服自动评选
+    url: ""            # 统计聚合端点(作者托管,POST {server,model,version});留空=不上报
