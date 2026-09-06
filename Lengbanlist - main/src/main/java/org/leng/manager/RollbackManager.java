@@ -324,8 +324,9 @@ public class RollbackManager {
     /**
      * 从审计日志的 reason 中提取所有警告 ID。
      * 批量取消警告的 reason 形如 "警告ID: &lt;id1&gt;,警告ID: &lt;id2&gt;,..."。
+     * package-private 便于 RollbackManagerTest 直接验证解析逻辑。
      */
-    private List<String> extractWarnIds(AuditEntry log) {
+    List<String> extractWarnIds(AuditEntry log) {
         String reason = log.getReason() == null ? "" : log.getReason();
         if (!reason.contains("警告ID: ")) {
             return null;
